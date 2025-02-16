@@ -5,27 +5,29 @@
 #include "elemwise.h"
 // #include <cuda_fp16.h>
 
-// to support half in future(...maybe long) easily i removed concept
+// to support half in future(...maybe far) easily i removed concept
 
 __device__ auto tomoRelu(auto val) noexcept
 {
-
-    return max(static_cast<decltype(val)>(0), val);
+    using T = std::remove_cvref_t<decltype(val)>;
+    return max(static_cast<T>(0), val);
 }
 
 __device__ auto tomoLeakyRelu(auto val) noexcept
 {
-    return max(static_cast<decltype(val)>(0.01) * val, val);
+    using T = std::remove_cvref_t<decltype(val)>;
+    return max(static_cast<T>(0.01) * val, val);
 }
 
 __device__ auto tomoInv(auto val) noexcept
 {
-    return static_cast<decltype(val)>(1) / val;
+    using T = std::remove_cvref_t<decltype(val)>;
+    return static_cast<T>(1) / val;
 }
 
 __global__ void tomoMap(auto *a, size_t len, auto fn_map)
 {
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    auto idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < len)
     {
         a[idx] = fn_map(a[idx]);
@@ -34,14 +36,14 @@ __global__ void tomoMap(auto *a, size_t len, auto fn_map)
 
 cudaError_t tomoLaunchMap(auto *a, size_t len, auto fn_map, unsigned int threads_per_block, cudaStream_t stream)
 {
-    unsigned int blocks_per_grid = (static_cast<unsigned int>(len) + threads_per_block - 1) / threads_per_block;
+    auto blocks_per_grid = (static_cast<unsigned int>(len) + threads_per_block - 1u) / threads_per_block;
     tomoMap<<<blocks_per_grid, threads_per_block, 0, stream>>>(a, len, fn_map);
     return cudaGetLastError();
 }
 
 __global__ void tomoBinary(auto *a, auto const *b, size_t len, auto fn_binary)
 {
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    auto idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < len)
     {
         a[idx] = fn_binary(a[idx], b[idx]);
@@ -50,7 +52,7 @@ __global__ void tomoBinary(auto *a, auto const *b, size_t len, auto fn_binary)
 
 cudaError_t tomoLaunchBinary(auto *a, auto const *b, size_t len, auto fn_binary, unsigned int threads_per_block, cudaStream_t stream)
 {
-    unsigned int blocks_per_grid = (static_cast<unsigned int>(len) + threads_per_block - 1) / threads_per_block;
+    auto blocks_per_grid = (static_cast<unsigned int>(len) + threads_per_block - 1u) / threads_per_block;
     tomoBinary<<<blocks_per_grid, threads_per_block, 0, stream>>>(a, b, len, fn_binary);
     return cudaGetLastError();
 }
@@ -180,9 +182,10 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivAssignD(double *a, double const *b
 // 1) ELU
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceElu(std::floating_point auto x, std::floating_point auto alpha) noexcept
+__device__ auto deviceElu(auto x, auto alpha) noexcept
 {
-    return (x > static_cast<decltype(x)>(0)) ? x : alpha * (exp(x) - static_cast<decltype(x)>(1));
+    using T = std::remove_cvref_t<decltype(x)>;
+    return (x > static_cast<T>(0)) ? x : alpha * (exp(x) - static_cast<T>(1));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEluF(float *a, size_t len, float alpha, unsigned int threads_per_block, cudaStream_t stream)
@@ -202,40 +205,35 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEluD(double *a, size_t len, double al
 //    Common constants: alpha ≈ 1.6732632423543772, lambda ≈ 1.0507009873554804
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceSelu(std::floating_point auto x, std::floating_point auto alpha, std::floating_point auto lambda) noexcept
+__device__ auto deviceSelu(auto x, auto alpha, auto lambda) noexcept
 {
     // x>0 ? lambda*x : lambda * alpha*(exp(x)-1)
-    if (x > static_cast<decltype(x)>(0))
-    {
-        return lambda * x;
-    }
-    else
-    {
-        return lambda * (alpha * (exp(x) - static_cast<decltype(x)>(1)));
-    }
+    using T = std::remove_cvref_t<decltype(x)>;
+    return x > static_cast<T>(0) ? lambda * x : lambda * (alpha * (exp(x) - static_cast<T>(1)));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSeluF(float *a, size_t len, float alpha, float lambda, unsigned int threads_per_block, cudaStream_t stream)
 {
-    return tomoLaunchMap(a, len, [=] __device__(float x) noexcept
-                         { return deviceSelu<float>(x, alpha, lambda); }, threads_per_block, stream);
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return deviceSelu(x, alpha, lambda); }, threads_per_block, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSeluD(double *a, size_t len, double alpha, double lambda, unsigned int threads_per_block, cudaStream_t stream)
 {
-    return tomoLaunchMap(a, len, [=] __device__(double x) noexcept
-                         { return deviceSelu<double>(x, alpha, lambda); }, threads_per_block, stream);
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return deviceSelu(x, alpha, lambda); }, threads_per_block, stream);
 }
 
 //===----------------------------------------------------------------------===//
 // 3) Softplus
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceSoftplus(std::floating_point auto x) noexcept
+__device__ auto deviceSoftplus(auto x) noexcept
 {
     // log(1 + exp(x))
     // For numerical stability, consider clamp x or use log1p(exp(x)) if available
-    return log(static_cast<decltype(x)>(1) + exp(x));
+    using T = std::remove_cvref_t<decltype(x)>;
+    return log(static_cast<T>(1) + exp(x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftplusF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -254,9 +252,10 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftplusD(double *a, size_t len, unsi
 // 4) Sigmoid
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceSigmoid(std::floating_point auto x)
+__device__ auto deviceSigmoid(auto x)
 {
-    return static_cast<decltype(x)>(1) / (static_cast<decltype(x)>(1) + exp(-x));
+    using T = std::remove_cvref_t<decltype(x)>;
+    return static_cast<T>(1) / (static_cast<T>(1) + exp(-x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSigmoidF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -278,7 +277,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSigmoidD(double *a, size_t len, unsig
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTanhF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
 {
     return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
-                         { return tanhf(x); }, threads_per_block, stream);
+                         { return tanh(x); }, threads_per_block, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTanhD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -292,9 +291,10 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTanhD(double *a, size_t len, unsigned
 //    f(x) = x / (1 + exp(-x))
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceSwish(std::floating_point auto x)
+__device__ auto deviceSwish(auto x)
 {
-    return x / (static_cast<decltype(x)>(1) + exp(-x));
+    using T = std::remove_cvref_t<decltype(x)>;
+    return x / (static_cast<T>(1) + exp(-x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSwishF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -314,15 +314,16 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSwishD(double *a, size_t len, unsigne
 //    f(x) = 0.5 * x * (1 + tanh( sqrt(2/pi)*(x + 0.044715*x^3) ) )
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceGelu(std::floating_point auto x) noexcept
+__device__ auto deviceGelu(auto x) noexcept
 {
+    using T = std::remove_cvref_t<decltype(x)>;
     // constants:
-    const auto k0 = static_cast<decltype(x)>(0.5);
-    const auto k1 = static_cast<decltype(x)>(0.7978845608); // sqrt(2/pi)
-    const auto k2 = static_cast<decltype(x)>(0.044715);
+    auto constexpr k0 = static_cast<T>(0.5);
+    auto constexpr k1 = static_cast<T>(0.7978845608); // sqrt(2/pi)
+    auto constexpr k2 = static_cast<T>(0.044715);
 
     auto t = k1 * (x + k2 * x * x * x);
-    return k0 * x * (static_cast<decltype(x)>(1) + tanh(t));
+    return k0 * x * (static_cast<T>(1) + tanh(t));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGeluF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -342,7 +343,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGeluD(double *a, size_t len, unsigned
 //    f(x) = max(0, min(1, 0.2*x + 0.5))
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceHardSigmoid(std::floating_point auto x) noexcept
+__device__ auto deviceHardSigmoid(auto x) noexcept
 {
     auto r = static_cast<decltype(x)>(0.2) * x + static_cast<decltype(x)>(0.5);
     r = (r < static_cast<decltype(x)>(0)) ? static_cast<decltype(x)>(0) : r;
@@ -368,13 +369,14 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHardSigmoidD(double *a, size_t len, u
 //    ReLU6(z) = min(max(0,z),6)
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceHardSwish(std::floating_point auto x) noexcept
+__device__ auto deviceHardSwish(auto x) noexcept
 {
-    auto z = x + static_cast<decltype(x)>(3);
+    using T = std::remove_cvref_t<decltype(x)>;
+    auto z = x + static_cast<T>(3);
     // clamp z to [0,6]
-    z = (z < static_cast<decltype(x)>(0)) ? static_cast<decltype(x)>(0) : z;
-    z = (z > static_cast<decltype(x)>(6)) ? static_cast<decltype(x)>(6) : z;
-    return x * z / static_cast<decltype(x)>(6);
+    z = (z < static_cast<T>(0)) ? static_cast<T>(0) : z;
+    z = (z > static_cast<T>(6)) ? static_cast<T>(6) : z;
+    return x * z / static_cast<T>(6);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHardSwishF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -394,9 +396,10 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHardSwishD(double *a, size_t len, uns
 //    f(x) = x / (1 + |x|)
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceSoftsign(std::floating_point auto x) noexcept
+__device__ auto deviceSoftsign(auto x) noexcept
 {
-    return x / (static_cast<decltype(x)>(1) + fabs(x));
+    using T = std::remove_cvref_t<decltype(x)>;
+    return x / (static_cast<T>(1) + abs(x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftsignF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -435,7 +438,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSquareD(double *a, size_t len, unsign
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSqrtF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
 {
     return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
-                         { return sqrtf(x); }, threads_per_block, stream);
+                         { return sqrt(x); }, threads_per_block, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSqrtD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -451,7 +454,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSqrtD(double *a, size_t len, unsigned
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLogF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
 {
     return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
-                         { return logf(x); }, threads_per_block, stream);
+                         { return log(x); }, threads_per_block, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLogD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -467,7 +470,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLogD(double *a, size_t len, unsigned 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoExpF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
 {
     return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
-                         { return expf(x); }, threads_per_block, stream);
+                         { return exp(x); }, threads_per_block, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoExpD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -483,7 +486,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoExpD(double *a, size_t len, unsigned 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAbsF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
 {
     return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
-                         { return fabsf(x); }, threads_per_block, stream);
+                         { return fabs(x); }, threads_per_block, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAbsD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
@@ -497,7 +500,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAbsD(double *a, size_t len, unsigned 
 //    f(x) = scale * x
 //===----------------------------------------------------------------------===//
 
-__device__ auto deviceScale(std::floating_point auto x, std::floating_point auto scale) noexcept
+__device__ auto deviceScale(auto x, auto scale) noexcept
 {
     return scale * x;
 }
@@ -523,16 +526,48 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoScaleD(double *a, size_t len, double 
 
 // For demonstration, we do a naive global sum across the entire array via atomic.
 
-__global__ void kernelExpInplaceAndPartialSum(std::floating_point auto const *in, std::floating_point auto *out, size_t len, std::floating_point auto *partialSum)
+__global__ void kernelExpInplaceAndPartialSumF(float const *in, float *out, size_t len, float *partialSum)
 {
-    extern __shared__ float sdata2[];
-    size_t tid = threadIdx.x;
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    auto accum = static_cast<decltype(*in)>(0.0);
+    extern __shared__ float sdata[];
+    auto tid = threadIdx.x;
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    auto accum = 0.0f;
 
     if (i < len)
     {
-        float val = exp(in[i]);
+        auto val = exp(in[i]);
+        out[i] = val; // store exponentiated
+        accum = val;
+    }
+    // reduction in shared memory
+    sdata[tid] = accum;
+    __syncthreads();
+
+    // do block-level reduction
+    for (auto stride = blockDim.x / 2; stride > 0; stride >>= 1)
+    {
+        if (tid < stride)
+            sdata[tid] += sdata[tid + stride];
+        __syncthreads();
+    }
+
+    // write result for this block to global
+    if (tid == 0)
+    {
+        atomicAdd(partialSum, sdata[0]);
+    }
+}
+
+__global__ void kernelExpInplaceAndPartialSumD(double const *in, double *out, size_t len, double *partialSum)
+{
+    extern __shared__ double sdata2[];
+    auto tid = threadIdx.x;
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    auto accum = 0.0;
+
+    if (i < len)
+    {
+        auto val = exp(in[i]);
         out[i] = val; // store exponentiated
         accum = val;
     }
@@ -541,7 +576,7 @@ __global__ void kernelExpInplaceAndPartialSum(std::floating_point auto const *in
     __syncthreads();
 
     // do block-level reduction
-    for (size_t stride = blockDim.x / 2; stride > 0; stride >>= 1)
+    for (auto stride = blockDim.x / 2; stride > 0; stride >>= 1)
     {
         if (tid < stride)
             sdata2[tid] += sdata2[tid + stride];
@@ -557,7 +592,7 @@ __global__ void kernelExpInplaceAndPartialSum(std::floating_point auto const *in
 
 __global__ void kernelDivide(auto *out, size_t len, auto *sum)
 {
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < len)
     {
         out[i] = out[i] / *sum;
@@ -566,29 +601,40 @@ __global__ void kernelDivide(auto *out, size_t len, auto *sum)
 
 cudaError_t tomoSoftmax(auto *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
 {
+    using T = std::remove_cvref_t<decltype(*a)>;
     auto err = cudaSuccess;
-    auto d_sum = static_cast<decltype(a)>(nullptr);
-    err = cudaMallocAsync((void **)&d_sum, sizeof(decltype(*a)), stream);
+    auto d_sum = static_cast<T *>(nullptr);
+    err = cudaMallocAsync((void **)&d_sum, sizeof(T), stream);
     if (err != cudaSuccess)
     {
-        return err; // can't even allocate
+        return err;
     }
-    err = cudaMemsetAsync(d_sum, 0, sizeof(decltype(*a)), stream);
+    err = cudaMemsetAsync(d_sum, 0, sizeof(T), stream);
     if (err != cudaSuccess)
     {
-        // We must free before returning
         cudaFreeAsync(d_sum, stream);
         return err;
     };
 
     unsigned int blocks_per_grid = (static_cast<unsigned int>(len) + threads_per_block - 1) / threads_per_block;
-    unsigned int sharedSize = threads_per_block * sizeof(decltype(*a));
+    unsigned int sharedSize = threads_per_block * sizeof(T);
 
-    kernelExpInplaceAndPartialSum<<<blocks_per_grid, threads_per_block, sharedSize, stream>>>(a, a, len, d_sum);
+    if constexpr (std::is_same_v<T, float>)
+    {
+        kernelExpInplaceAndPartialSumF<<<blocks_per_grid, threads_per_block, sharedSize, stream>>>(a, a, len, d_sum);
+    }
+    else if constexpr (std::is_same_v<T, double>)
+    {
+        kernelExpInplaceAndPartialSumD<<<blocks_per_grid, threads_per_block, sharedSize, stream>>>(a, a, len, d_sum);
+    }
+    else
+    {
+        static_assert(std::is_floating_point_v<T>);
+    }
+
     err = cudaGetLastError();
     if (err != cudaSuccess)
     {
-        // Free before returning
         cudaFreeAsync(d_sum, stream);
         return err;
     }
@@ -597,7 +643,6 @@ cudaError_t tomoSoftmax(auto *a, size_t len, unsigned int threads_per_block, cud
     err = cudaGetLastError();
     if (err != cudaSuccess)
     {
-        // If we failed to launch or run kernel, free memory
         cudaFreeAsync(d_sum, stream);
         return err;
     }
