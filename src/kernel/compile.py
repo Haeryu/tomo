@@ -58,7 +58,7 @@ if __name__ == "__main__":
                             "-Xcompiler", 
                             "/wd4100", 
                             "-Xcompiler", 
-                            "/Wall", 
+                            "/W3", 
                             # Xlinker
                             "-Xlinker", 
                             "/NODEFAULTLIB:LIBCMT", 

@@ -1,9 +1,6 @@
-#include <cuda_runtime.h>
-
 #define TOMO_OPS_EXPORTS
 #include "tomo_dll.h"
 #include "elemwise.h"
-// #include <cuda_fp16.h>
 
 // to support half in future(...maybe far) easily i removed concept
 
@@ -528,7 +525,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoScaleD(double *a, size_t len, double 
 
 __global__ void kernelExpInplaceAndPartialSumF(float const *in, float *out, size_t len, float *partialSum)
 {
-    extern __shared__ float sdata[];
+    extern __shared__ float sdata_f[];
     auto tid = threadIdx.x;
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
     auto accum = 0.0f;
@@ -540,21 +537,21 @@ __global__ void kernelExpInplaceAndPartialSumF(float const *in, float *out, size
         accum = val;
     }
     // reduction in shared memory
-    sdata[tid] = accum;
+    sdata_f[tid] = accum;
     __syncthreads();
 
     // do block-level reduction
     for (auto stride = blockDim.x / 2; stride > 0; stride >>= 1)
     {
         if (tid < stride)
-            sdata[tid] += sdata[tid + stride];
+            sdata_f[tid] += sdata_f[tid + stride];
         __syncthreads();
     }
 
     // write result for this block to global
     if (tid == 0)
     {
-        atomicAdd(partialSum, sdata[0]);
+        atomicAdd(partialSum, sdata_f[0]);
     }
 }
 

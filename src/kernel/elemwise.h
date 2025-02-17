@@ -1,6 +1,5 @@
 #include <cuda_runtime.h>
 
-// #define TOMO_OPS_EXPORTS
 #include "tomo_dll.h"
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSinF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
