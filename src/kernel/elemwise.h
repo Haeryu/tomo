@@ -32,9 +32,6 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMulAssignD(double *a, double const *b
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivAssignF(float *a, float const *b, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivAssignD(double *a, double const *b, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 
-/////////////////////
-
-// Already existing prototypes omitted for brevity...
 
 // 1) ELU
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEluF(float *a, size_t len, float alpha, unsigned int threads_per_block, cudaStream_t stream);

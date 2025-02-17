@@ -17,7 +17,7 @@ pub fn main() !void {
     var cuda_context = try tm.cuda_context.CudaContext.init();
     defer cuda_context.deinit();
 
-    const F = f64;
+    const F = f32;
 
     var device_tensor = tm.tensor.GPUTensor(F, 2){};
     try device_tensor.initAsync(.{ 30, 40 }, &stream);
@@ -80,6 +80,9 @@ pub fn main() !void {
     try device_tensor_matmul_res.square(&cuda_context, &stream);
     try device_tensor_matmul_res.softmax(&cuda_context, &stream);
 
+    var sum: f32 = undefined;
+    try device_tensor_matmul_res.l2Norm(&cuda_context, &stream, &sum);
+
     try host_tensor_t_res.writeFromDevice(device_tensor_t_res.ptr.?, device_tensor_t_res.getLen(), 0, &stream);
     try host_tensor_matmul_res.writeFromDevice(device_tensor_matmul_res.ptr.?, device_tensor_matmul_res.getLen(), 0, &stream);
 
@@ -95,4 +98,5 @@ pub fn main() !void {
     // std.debug.print("{d}\n", .{host_tensor});
     // std.debug.print("{d}\n", .{host_tensor_t_res});
     std.debug.print("{d}\n", .{new});
+    std.debug.print("{d}\n", .{sum});
 }
