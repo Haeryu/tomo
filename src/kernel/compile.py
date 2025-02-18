@@ -64,10 +64,10 @@ if __name__ == "__main__":
                             "/NODEFAULTLIB:LIBCMT", 
                             # nvcc
                             "-O2", 
-                            "--expt-relaxed-constexpr",
-                            "--use_fast_math", 
                             "-gencode=arch=compute_89,code=sm_89", 
                             "-std=c++20", 
                             "-rdc=true", 
+                            "--expt-relaxed-constexpr",
+                            "--use_fast_math", 
                             "--extended-lambda",
                                         ])  
