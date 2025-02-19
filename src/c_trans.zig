@@ -10165,6 +10165,10 @@ pub extern fn tomoFloorF(a: [*c]f32, len: usize, threads_per_block: c_uint, stre
 pub extern fn tomoFloorD(a: [*c]f64, len: usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoCeilF(a: [*c]f32, len: usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoCeilD(a: [*c]f64, len: usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoShiftF(a: [*c]f32, len: usize, offset: f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoShiftD(a: [*c]f64, len: usize, offset: f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoScaleShiftF(a: [*c]f32, len: usize, scale: f32, offset: f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoScaleShiftD(a: [*c]f64, len: usize, scale: f64, offset: f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceF(a: [*c]const f32, len: usize, host_out: [*c]f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceD(a: [*c]const f64, len: usize, host_out: [*c]f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoMeanF(a: [*c]const f32, len: usize, host_out: [*c]f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;

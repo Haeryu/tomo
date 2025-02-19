@@ -299,3 +299,37 @@ pub fn checkCublas(status: c.cublasStatus_t) CublasError!void {
         else => unreachable,
     }
 }
+
+pub const CurandError = error{
+    VERSION_MISMATCH,
+    NOT_INITIALIZED,
+    ALLOCATION_FAILED,
+    TYPE_ERROR,
+    OUT_OF_RANGE,
+    LENGTH_NOT_MULTIPLE,
+    DOUBLE_PRECISION_REQUIRED,
+    LAUNCH_FAILURE,
+    PREEXISTING_FAILURE,
+    INITIALIZATION_FAILED,
+    ARCH_MISMATCH,
+    INTERNAL_ERROR,
+};
+
+pub fn checkCurand(status: c.curandStatus_t) CurandError!void {
+    switch (status) {
+        0 => {},
+        100 => return CurandError.VERSION_MISMATCH,
+        101 => return CurandError.NOT_INITIALIZED,
+        102 => return CurandError.ALLOCATION_FAILED,
+        103 => return CurandError.TYPE_ERROR,
+        104 => return CurandError.OUT_OF_RANGE,
+        105 => return CurandError.LENGTH_NOT_MULTIPLE,
+        106 => return CurandError.DOUBLE_PRECISION_REQUIRED,
+        201 => return CurandError.LAUNCH_FAILURE,
+        202 => return CurandError.PREEXISTING_FAILURE,
+        203 => return CurandError.INITIALIZATION_FAILED,
+        204 => return CurandError.ARCH_MISMATCH,
+        999 => return CurandError.INTERNAL_ERROR,
+        else => unreachable,
+    }
+}

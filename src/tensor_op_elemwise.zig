@@ -753,5 +753,40 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
                 else => unreachable,
             }
         }
+
+        pub fn shift(
+            self: *Self,
+            offset: T,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            switch (T) {
+                f32 => {
+                    try err.checkCuda(c.tomoShiftF(self.ptr, self.getLen(), offset, cuda_context.threads_per_block, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoShiftD(self.ptr, self.getLen(), offset, cuda_context.threads_per_block, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn scaleShift(
+            self: *Self,
+            factor: T,
+            offset: T,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            switch (T) {
+                f32 => {
+                    try err.checkCuda(c.tomoScaleShiftF(self.ptr, self.getLen(), factor, offset, cuda_context.threads_per_block, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoScaleShiftD(self.ptr, self.getLen(), factor, offset, cuda_context.threads_per_block, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
     };
 }

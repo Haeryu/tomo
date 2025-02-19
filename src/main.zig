@@ -85,6 +85,7 @@ pub fn main() !void {
 
     try device_tensor_matmul_res.pow(2, &cuda_context, &stream);
     try device_tensor_matmul_res.powf(0.5, &cuda_context, &stream);
+    try device_tensor_matmul_res.fillHeNormal(&cuda_context, &stream);
 
     try host_tensor_t_res.writeFromDevice(device_tensor_t_res.ptr.?, device_tensor_t_res.getLen(), 0, &stream);
     try host_tensor_matmul_res.writeFromDevice(device_tensor_matmul_res.ptr.?, device_tensor_matmul_res.getLen(), 0, &stream);

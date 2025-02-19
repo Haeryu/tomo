@@ -4,6 +4,7 @@ const err = @import("error.zig");
 const Stream = @import("stream.zig").Stream;
 const CudaContext = @import("cuda_context.zig").CudaContext;
 const TensorOp = @import("tensor_op.zig").TensorOp;
+const TensorFillRandom = @import("tensor_fill_random.zig").TensorFillRandom;
 
 pub fn TensorBase(comptime rank: comptime_int) type {
     return struct {
@@ -39,6 +40,20 @@ pub fn TensorBase(comptime rank: comptime_int) type {
                 total *= dim;
             }
             return total;
+        }
+
+        pub fn computeFanInOut(self: *Self) std.meta.Tuple(&.{ usize, usize }) {
+            // e.g. for a 2D weight matrix [fan_out, fan_in], or
+            // for convolution [out_channels, in_channels * kernel_h * kernel_w], etc.
+            // This is up to you how you want to interpret 'shape'.
+            if (self.shape.len == 2) {
+                return .{ self.shape[1], self.shape[0] }; // fan_in, fan_out
+            } else {
+                // for a 4D conv: [out_channels, in_channels, kernel_h, kernel_w]
+                const fan_in = self.shape[1] * self.shape[2] * self.shape[3];
+                const fan_out = self.shape[0] * self.shape[2] * self.shape[3];
+                return .{ fan_in, fan_out };
+            }
         }
     };
 }
@@ -376,5 +391,6 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
         // pub fn contiguousDevice(self: *Self, stream: *const Stream) !Self {}
 
         pub usingnamespace TensorOp(T, rank);
+        pub usingnamespace TensorFillRandom(T, rank);
     };
 }

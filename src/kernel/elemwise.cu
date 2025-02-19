@@ -723,3 +723,27 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCeilD(double *a, size_t len, unsigned
     return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
                          { return ceil(x); }, threads_per_block, stream);
 }
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoShiftF(float *a, size_t len, float offset, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return x + offset; }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoShiftD(double *a, size_t len, double offset, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return x + offset; }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoScaleShiftF(float *a, size_t len, float scale, float offset, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return x * scale + offset; }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoScaleShiftD(double *a, size_t len, double scale, double offset, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return x * scale + offset; }, threads_per_block, stream);
+}
