@@ -75,7 +75,7 @@ pub fn main() !void {
     // try device_tensor_matmul_res.subAssign(&device_tensor_matmul_t_res, &cuda_context, &stream);
     // try device_tensor_matmul_res.mulAssign(&device_tensor_matmul_t_res, &cuda_context, &stream);
     // try device_tensor_matmul_res.divAssign(&device_tensor_matmul_t_res, &cuda_context, &stream);
-    try device_tensor_matmul_res.scale(10.0, &cuda_context, &stream);
+    // try device_tensor_matmul_res.scale(10.0, &cuda_context, &stream);
     // try device_tensor_matmul_res.sqrt(&cuda_context, &stream);
     // try device_tensor_matmul_res.square(&cuda_context, &stream);
     // try device_tensor_matmul_res.softmax(&cuda_context, &stream);
@@ -83,7 +83,8 @@ pub fn main() !void {
     // var sum: f32 = undefined;
     // try device_tensor_matmul_res.l1Norm(&cuda_context, &stream, &sum);
 
-    try device_tensor_matmul_res.pow(2.0, &cuda_context, &stream);
+    try device_tensor_matmul_res.pow(2, &cuda_context, &stream);
+    try device_tensor_matmul_res.powf(0.5, &cuda_context, &stream);
 
     try host_tensor_t_res.writeFromDevice(device_tensor_t_res.ptr.?, device_tensor_t_res.getLen(), 0, &stream);
     try host_tensor_matmul_res.writeFromDevice(device_tensor_matmul_res.ptr.?, device_tensor_matmul_res.getLen(), 0, &stream);

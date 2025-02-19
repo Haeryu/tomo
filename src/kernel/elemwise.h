@@ -100,8 +100,11 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoScaleD(double *a, size_t len, double 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftmaxF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftmaxD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowF(float *a, size_t len, float exponent, unsigned int threads_per_block, cudaStream_t stream);
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowD(double *a, size_t len, double exponent, unsigned int threads_per_block, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowF(float *a, size_t len, int exponent, unsigned int threads_per_block, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowD(double *a, size_t len, int exponent, unsigned int threads_per_block, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowfF(float *a, size_t len, float exponent, unsigned int threads_per_block, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowfD(double *a, size_t len, double exponent, unsigned int threads_per_block, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoClampF(float *a, size_t len, float lower, float upper, unsigned int threads_per_block, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoClampD(double *a, size_t len, double lower, double upper, unsigned int threads_per_block, cudaStream_t stream);

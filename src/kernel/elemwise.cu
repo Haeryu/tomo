@@ -662,14 +662,27 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftmaxD(double *a, size_t len, unsig
 
 ////////
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowF(float *a, size_t len, float exponent, unsigned int threads_per_block, cudaStream_t stream)
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowF(float *a, size_t len, int exponent, unsigned int threads_per_block, cudaStream_t stream)
 {
     // We pass 'exponent' by value into the lambda
     return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
                          { return pow(x, exponent); }, threads_per_block, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowD(double *a, size_t len, double exponent, unsigned int threads_per_block, cudaStream_t stream)
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowD(double *a, size_t len, int exponent, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return pow(x, exponent); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowfF(float *a, size_t len, float exponent, unsigned int threads_per_block, cudaStream_t stream)
+{
+    // We pass 'exponent' by value into the lambda
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return pow(x, exponent); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowfD(double *a, size_t len, double exponent, unsigned int threads_per_block, cudaStream_t stream)
 {
     return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
                          { return pow(x, exponent); }, threads_per_block, stream);

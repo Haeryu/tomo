@@ -670,7 +670,7 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn pow(
+        pub fn powf(
             self: *Self,
             exponent: T,
             cuda_context: *const CudaContext,
@@ -678,10 +678,27 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoPowF(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoPowfF(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoPowD(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoPowfD(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn pow(
+            self: *Self,
+            exponent: i32,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            switch (T) {
+                f32 => {
+                    try err.checkCuda(c.tomoPowF(self.ptr, self.getLen(), @intCast(exponent), cuda_context.threads_per_block, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoPowD(self.ptr, self.getLen(), @intCast(exponent), cuda_context.threads_per_block, stream.stream));
                 },
                 else => unreachable,
             }

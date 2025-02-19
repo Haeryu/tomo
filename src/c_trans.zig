@@ -10155,8 +10155,10 @@ pub extern fn tomoScaleF(a: [*c]f32, len: usize, scale: f32, threads_per_block: 
 pub extern fn tomoScaleD(a: [*c]f64, len: usize, scale: f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSoftmaxF(a: [*c]f32, len: usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSoftmaxD(a: [*c]f64, len: usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
-pub extern fn tomoPowF(a: [*c]f32, len: usize, exponent: f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
-pub extern fn tomoPowD(a: [*c]f64, len: usize, exponent: f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoPowF(a: [*c]f32, len: usize, exponent: c_int, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoPowD(a: [*c]f64, len: usize, exponent: c_int, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoPowfF(a: [*c]f32, len: usize, exponent: f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoPowfD(a: [*c]f64, len: usize, exponent: f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoClampF(a: [*c]f32, len: usize, lower: f32, upper: f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoClampD(a: [*c]f64, len: usize, lower: f64, upper: f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoFloorF(a: [*c]f32, len: usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
