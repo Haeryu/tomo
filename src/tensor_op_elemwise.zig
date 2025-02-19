@@ -274,121 +274,73 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn sin(self: *Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
+        pub fn sin(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSinF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSinF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSinD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSinD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
         }
 
-        pub fn cos(self: *Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
+        pub fn cos(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoCosF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoCosF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoCosD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoCosD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
         }
 
-        pub fn tan(self: *Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
+        pub fn tan(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoTanF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoTanF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoTanD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoTanD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
         }
 
-        pub fn relu(self: *Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
+        pub fn relu(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoReluF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoReluF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoReluD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoReluD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
         }
 
-        pub fn leakyRelu(self: *Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
+        pub fn leakyRelu(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoLeakyReluF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoLeakyReluF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoLeakyReluD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoLeakyReluD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
         }
 
-        pub fn inv(self: *Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
+        pub fn inv(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoInvF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoInvF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoInvD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
-
-        pub fn addAssign(self: *Self, other: *const Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
-            switch (T) {
-                f32 => {
-                    try err.checkCuda(c.tomoAddAssignF(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoAddAssignD(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
-
-        pub fn subAssign(self: *Self, other: *const Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
-            switch (T) {
-                f32 => {
-                    try err.checkCuda(c.tomoSubAssignF(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoSubAssignD(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
-
-        pub fn mulAssign(self: *Self, other: *const Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
-            switch (T) {
-                f32 => {
-                    try err.checkCuda(c.tomoMulAssignF(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoMulAssignD(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
-
-        pub fn divAssign(self: *Self, other: *const Self, cuda_context: *const CudaContext, stream: *const Stream) !void {
-            switch (T) {
-                f32 => {
-                    try err.checkCuda(c.tomoDivAssignF(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoDivAssignD(self.ptr, other.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoInvD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -397,15 +349,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         pub fn elu(
             self: *Self,
             alpha: T,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoEluF(self.ptr, self.getLen(), alpha, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoEluF(self.ptr, self.getLen(), alpha, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoEluD(self.ptr, self.getLen(), alpha, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoEluD(self.ptr, self.getLen(), alpha, stream.stream));
                 },
                 else => unreachable,
             }
@@ -415,15 +366,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             self: *Self,
             alpha: T,
             lambda: T,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSeluF(self.ptr, self.getLen(), alpha, lambda, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSeluF(self.ptr, self.getLen(), alpha, lambda, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSeluD(self.ptr, self.getLen(), alpha, lambda, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSeluD(self.ptr, self.getLen(), alpha, lambda, stream.stream));
                 },
                 else => unreachable,
             }
@@ -431,15 +381,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn softplus(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSoftplusF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSoftplusF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSoftplusD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSoftplusD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -447,15 +396,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn sigmoid(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSigmoidF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSigmoidF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSigmoidD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSigmoidD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -463,15 +411,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn tanh(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoTanhF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoTanhF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoTanhD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoTanhD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -479,15 +426,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn swish(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSwishF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSwishF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSwishD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSwishD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -495,15 +441,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn gelu(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoGeluF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoGeluF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoGeluD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoGeluD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -511,15 +456,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn hardSigmoid(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoHardSigmoidF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoHardSigmoidF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoHardSigmoidD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoHardSigmoidD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -527,15 +471,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn hardSwish(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoHardSwishF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoHardSwishF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoHardSwishD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoHardSwishD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -543,15 +486,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn softsign(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSoftsignF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSoftsignF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSoftsignD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSoftsignD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -559,15 +501,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn square(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSquareF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSquareF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSquareD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSquareD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -575,15 +516,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn sqrt(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoSqrtF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSqrtF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSqrtD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoSqrtD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -591,15 +531,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn log(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoLogF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoLogF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoLogD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoLogD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -607,15 +546,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn exp(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoExpF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoExpF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoExpD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoExpD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -623,15 +561,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn abs(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoAbsF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoAbsF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoAbsD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoAbsD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -640,31 +577,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         pub fn scale(
             self: *Self,
             factor: T,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoScaleF(self.ptr, self.getLen(), factor, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoScaleF(self.ptr, self.getLen(), factor, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoScaleD(self.ptr, self.getLen(), factor, cuda_context.threads_per_block, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
-
-        pub fn softmax(
-            self: *Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-        ) !void {
-            switch (T) {
-                f32 => {
-                    try err.checkCuda(c.tomoSoftmaxF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoSoftmaxD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoScaleD(self.ptr, self.getLen(), factor, stream.stream));
                 },
                 else => unreachable,
             }
@@ -673,15 +593,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         pub fn powf(
             self: *Self,
             exponent: T,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoPowfF(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoPowfF(self.ptr, self.getLen(), exponent, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoPowfD(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoPowfD(self.ptr, self.getLen(), exponent, stream.stream));
                 },
                 else => unreachable,
             }
@@ -690,15 +609,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         pub fn pow(
             self: *Self,
             exponent: i32,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoPowF(self.ptr, self.getLen(), @intCast(exponent), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoPowF(self.ptr, self.getLen(), @intCast(exponent), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoPowD(self.ptr, self.getLen(), @intCast(exponent), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoPowD(self.ptr, self.getLen(), @intCast(exponent), stream.stream));
                 },
                 else => unreachable,
             }
@@ -708,15 +626,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             self: *Self,
             lower: T,
             upper: T,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoClampF(self.ptr, self.getLen(), lower, upper, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoClampF(self.ptr, self.getLen(), lower, upper, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoClampD(self.ptr, self.getLen(), lower, upper, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoClampD(self.ptr, self.getLen(), lower, upper, stream.stream));
                 },
                 else => unreachable,
             }
@@ -724,15 +641,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn ceil(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoCeilF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoCeilF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoCeilD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoCeilD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -740,15 +656,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn floor(
             self: *Self,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoFloorF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoFloorF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoFloorD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoFloorD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -757,15 +672,14 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         pub fn shift(
             self: *Self,
             offset: T,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoShiftF(self.ptr, self.getLen(), offset, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoShiftF(self.ptr, self.getLen(), offset, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoShiftD(self.ptr, self.getLen(), offset, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoShiftD(self.ptr, self.getLen(), offset, stream.stream));
                 },
                 else => unreachable,
             }
@@ -775,18 +689,32 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             self: *Self,
             factor: T,
             offset: T,
-            cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 f32 => {
-                    try err.checkCuda(c.tomoScaleShiftF(self.ptr, self.getLen(), factor, offset, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoScaleShiftF(self.ptr, self.getLen(), factor, offset, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoScaleShiftD(self.ptr, self.getLen(), factor, offset, cuda_context.threads_per_block, stream.stream));
+                    try err.checkCuda(c.tomoScaleShiftD(self.ptr, self.getLen(), factor, offset, stream.stream));
                 },
                 else => unreachable,
             }
+        }
+
+        pub fn softmax(
+            self: *Self,
+            stream: *const Stream,
+        ) !void {
+            var max = -std.math.floatMax(T);
+            try self.max(stream, &max);
+            try stream.sync();
+            try self.shift(-max, stream);
+            try self.exp(stream);
+            var sum: T = 0.0;
+            try self.sumReduce(stream, &sum);
+            try stream.sync();
+            try self.scale(1.0 / sum, stream);
         }
     };
 }

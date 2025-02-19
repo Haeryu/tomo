@@ -66,7 +66,7 @@ pub fn main() !void {
 
     try device_tensor_matmul_t_res.transpose(&cuda_context, &stream, &device_tensor_matmul_res);
 
-    try device_tensor_matmul_res.sin(&cuda_context, &stream);
+    try device_tensor_matmul_res.sin(&stream);
     //try device_tensor_matmul_res.cos(&cuda_context, &stream);
     // try device_tensor_matmul_res.tan(&cuda_context, &stream);
     //try device_tensor_matmul_res.inv(&cuda_context, &stream);
@@ -83,14 +83,19 @@ pub fn main() !void {
     // var sum: f32 = undefined;
     // try device_tensor_matmul_res.l1Norm(&cuda_context, &stream, &sum);
 
-    try device_tensor_matmul_res.pow(2, &cuda_context, &stream);
-    try device_tensor_matmul_res.powf(0.5, &cuda_context, &stream);
     try device_tensor_matmul_res.fillHeNormal(&cuda_context, &stream);
+    try device_tensor_matmul_res.pow(2, &stream);
+    try device_tensor_matmul_res.powf(0.5, &stream);
 
+    try device_tensor_matmul_res.softmax(&stream);
+
+    try stream.sync();
     var sum: F = 0.0;
-    try device_tensor_matmul_res.sumReduce(&cuda_context, &stream, &sum);
+    try device_tensor_matmul_res.sumReduce(&stream, &sum);
 
-    try host_tensor_t_res.writeFromDevice(device_tensor_t_res.ptr.?, device_tensor_t_res.getLen(), 0, &stream);
+    try stream.sync();
+
+    // try host_tensor_t_res.writeFromDevice(device_tensor_t_res.ptr.?, device_tensor_t_res.getLen(), 0, &stream);
     try host_tensor_matmul_res.writeFromDevice(device_tensor_matmul_res.ptr.?, device_tensor_matmul_res.getLen(), 0, &stream);
 
     try stream.sync();
