@@ -669,5 +669,72 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
                 else => unreachable,
             }
         }
+
+        pub fn pow(
+            self: *Self,
+            exponent: T,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            switch (T) {
+                f32 => {
+                    try err.checkCuda(c.tomoPowF(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoPowD(self.ptr, self.getLen(), exponent, cuda_context.threads_per_block, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn clamp(
+            self: *Self,
+            lower: T,
+            upper: T,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            switch (T) {
+                f32 => {
+                    try err.checkCuda(c.tomoClampF(self.ptr, self.getLen(), lower, upper, cuda_context.threads_per_block, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoClampD(self.ptr, self.getLen(), lower, upper, cuda_context.threads_per_block, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn ceil(
+            self: *Self,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            switch (T) {
+                f32 => {
+                    try err.checkCuda(c.tomoCeilF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoCeilD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn floor(
+            self: *Self,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            switch (T) {
+                f32 => {
+                    try err.checkCuda(c.tomoFloorF(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoFloorD(self.ptr, self.getLen(), cuda_context.threads_per_block, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
     };
 }

@@ -1,6 +1,7 @@
 #define TOMO_OPS_EXPORTS
 #include "tomo_dll.h"
 #include "elemwise.h"
+#include <algorithm>
 
 // to support half in future(...maybe far) easily i removed concept
 
@@ -596,7 +597,7 @@ __global__ void kernelDivide(auto *out, size_t len, auto *sum)
     }
 }
 
-cudaError_t tomoSoftmax(auto *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
+cudaError_t tomoSoftmax(auto *a, size_t len, unsigned int threads_per_block, cudaStream_t stream) noexcept
 {
     using T = std::remove_cvref_t<decltype(*a)>;
     auto err = cudaSuccess;
@@ -657,4 +658,55 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftmaxF(float *a, size_t len, unsign
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftmaxD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
 {
     return tomoSoftmax(a, len, threads_per_block, stream);
+}
+
+////////
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowF(float *a, size_t len, float exponent, unsigned int threads_per_block, cudaStream_t stream)
+{
+    // We pass 'exponent' by value into the lambda
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return pow(x, exponent); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowD(double *a, size_t len, double exponent, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return pow(x, exponent); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoClampF(float *a, size_t len, float lower, float upper, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return std::clamp(x, lower, upper); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoClampD(double *a, size_t len, double lower, double upper, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [=] __device__(auto x) noexcept
+                         { return std::clamp(x, lower, upper); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFloorF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
+                         { return floor(x); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFloorD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
+                         { return floor(x); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCeilF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
+                         { return ceil(x); }, threads_per_block, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCeilD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream)
+{
+    return tomoLaunchMap(a, len, [] __device__(auto x) noexcept
+                         { return ceil(x); }, threads_per_block, stream);
 }

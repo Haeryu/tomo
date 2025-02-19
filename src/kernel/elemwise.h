@@ -32,7 +32,6 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMulAssignD(double *a, double const *b
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivAssignF(float *a, float const *b, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivAssignD(double *a, double const *b, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 
-
 // 1) ELU
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEluF(float *a, size_t len, float alpha, unsigned int threads_per_block, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEluD(double *a, size_t len, double alpha, unsigned int threads_per_block, cudaStream_t stream);
@@ -101,3 +100,14 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoScaleD(double *a, size_t len, double 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftmaxF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftmaxD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowF(float *a, size_t len, float exponent, unsigned int threads_per_block, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoPowD(double *a, size_t len, double exponent, unsigned int threads_per_block, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoClampF(float *a, size_t len, float lower, float upper, unsigned int threads_per_block, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoClampD(double *a, size_t len, double lower, double upper, unsigned int threads_per_block, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFloorF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFloorD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCeilF(float *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCeilD(double *a, size_t len, unsigned int threads_per_block, cudaStream_t stream);
