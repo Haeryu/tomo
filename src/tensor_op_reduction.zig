@@ -60,23 +60,23 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn minIdx(
-            self: *Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-            result: *T,
-            result_idx: *usize,
-        ) !void {
-            switch (T) {
-                f32 => {
-                    try err.checkCuda(c.tomoArgMinF(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoArgMinD(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
+        // pub fn minIdx(
+        //     self: *Self,
+        //     cuda_context: *const CudaContext,
+        //     stream: *const Stream,
+        //     result: *T,
+        //     result_idx: *usize,
+        // ) !void {
+        //     switch (T) {
+        //         f32 => {
+        //             try err.checkCuda(c.tomoArgMinF(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
+        //         },
+        //         f64 => {
+        //             try err.checkCuda(c.tomoArgMinD(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
+        //         },
+        //         else => unreachable,
+        //     }
+        // }
 
         pub fn max(
             self: *Self,
@@ -95,23 +95,23 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn maxIdx(
-            self: *Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-            result: *T,
-            result_idx: *usize,
-        ) !void {
-            switch (T) {
-                f32 => {
-                    try err.checkCuda(c.tomoArgMaxF(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoArgMaxD(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
+        // pub fn maxIdx(
+        //     self: *Self,
+        //     cuda_context: *const CudaContext,
+        //     stream: *const Stream,
+        //     result: *T,
+        //     result_idx: *usize,
+        // ) !void {
+        //     switch (T) {
+        //         f32 => {
+        //             try err.checkCuda(c.tomoArgMaxF(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
+        //         },
+        //         f64 => {
+        //             try err.checkCuda(c.tomoArgMaxD(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
+        //         },
+        //         else => unreachable,
+        //     }
+        // }
 
         pub fn l1Norm(
             self: *Self,

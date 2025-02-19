@@ -10177,10 +10177,6 @@ pub extern fn tomoMinF(in: [*c]const f32, len: usize, host_out: [*c]f32, threads
 pub extern fn tomoMinD(in: [*c]const f64, len: usize, host_out: [*c]f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoMaxF(in: [*c]const f32, len: usize, host_out: [*c]f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoMaxD(in: [*c]const f64, len: usize, host_out: [*c]f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
-pub extern fn tomoArgMinF(in: [*c]const f32, len: usize, host_min_val: [*c]f32, host_min_idx: [*c]usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
-pub extern fn tomoArgMinD(in: [*c]const f64, len: usize, host_min_val: [*c]f64, host_min_idx: [*c]usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
-pub extern fn tomoArgMaxF(in: [*c]const f32, len: usize, host_min_val: [*c]f32, host_min_idx: [*c]usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
-pub extern fn tomoArgMaxD(in: [*c]const f64, len: usize, host_min_val: [*c]f64, host_min_idx: [*c]usize, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoL1NormF(a: [*c]const f32, len: usize, host_out: [*c]f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoL1NormD(a: [*c]const f64, len: usize, host_out: [*c]f64, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoL2NormF(a: [*c]const f32, len: usize, host_out: [*c]f32, threads_per_block: c_uint, stream: cudaStream_t) cudaError_t;
