@@ -9,5 +9,7 @@ pub usingnamespace @cImport({
     @cInclude("cusparse.h");
     @cInclude("cusolverDn.h");
     @cInclude("cusolverMg.h");
+    @cInclude("cuda_fp16.h");
+    @cInclude("cuda_bf16.h");
     @cInclude("tomo_cuda.h");
 });

@@ -60,17 +60,17 @@ cudaError_t tomoSumReduce(auto const *a,
     return tomoReduceMap(a, len, host_out, static_cast<T>(0), thrust::plus<T>{}, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSumReduceH(half const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSumReduceH(__half_raw const *a,
                                                       size_t len,
-                                                      half *host_out,
+                                                      __half_raw *host_out,
                                                       cudaStream_t stream)
 {
     return tomoSumReduce(a, len, host_out, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSumReduceB(__nv_bfloat16 const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSumReduceB(__nv_bfloat16_raw const *a,
                                                       size_t len,
-                                                      __nv_bfloat16 *host_out,
+                                                      __nv_bfloat16_raw *host_out,
                                                       cudaStream_t stream)
 {
     return tomoSumReduce(a, len, host_out, stream);
@@ -108,23 +108,34 @@ cudaError_t tomoMean(auto const *a,
 
     if (len > 0)
     {
-        *host_out /= static_cast<T>(len);
+        if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        {
+            *host_out = static_cast<__nv_bfloat16>(*host_out) / static_cast<__nv_bfloat16>(len);
+        }
+        else if constexpr (std::is_same_v<T, __half_raw>)
+        {
+            *host_out = static_cast<__half>(*host_out) / static_cast<__half>(len);
+        }
+        else
+        {
+            *host_out = *host_out / static_cast<T>(len);
+        }
     }
 
     return cudaSuccess;
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanH(half const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanH(__half_raw const *a,
                                                  size_t len,
-                                                 half *host_out,
+                                                 __half_raw *host_out,
                                                  cudaStream_t stream)
 {
     return tomoMean(a, len, host_out, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanB(__nv_bfloat16 const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanB(__nv_bfloat16_raw const *a,
                                                  size_t len,
-                                                 __nv_bfloat16 *host_out,
+                                                 __nv_bfloat16_raw *host_out,
                                                  cudaStream_t stream)
 {
     return tomoMean(a, len, host_out, stream);
@@ -155,17 +166,17 @@ cudaError_t tomoMin(const auto *in,
     return tomoReduceMap(in, len, host_out, std::numeric_limits<T>::max(), thrust::minimum<T>{}, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinH(half const *in,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinH(__half_raw const *in,
                                                 size_t len,
-                                                half *host_out,
+                                                __half_raw *host_out,
                                                 cudaStream_t stream)
 {
     return tomoMin(in, len, host_out, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinB(__nv_bfloat16 const *in,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinB(__nv_bfloat16_raw const *in,
                                                 size_t len,
-                                                __nv_bfloat16 *host_out,
+                                                __nv_bfloat16_raw *host_out,
                                                 cudaStream_t stream)
 {
     return tomoMin(in, len, host_out, stream);
@@ -196,17 +207,17 @@ cudaError_t tomoMax(auto const *in,
     return tomoReduceMap(in, len, host_out, std::numeric_limits<T>::lowest(), thrust::maximum<T>{}, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxH(half const *in,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxH(__half_raw const *in,
                                                 size_t len,
-                                                half *host_out,
+                                                __half_raw *host_out,
                                                 cudaStream_t stream)
 {
     return tomoMax(in, len, host_out, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxB(__nv_bfloat16 const *in,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxB(__nv_bfloat16_raw const *in,
                                                 size_t len,
-                                                __nv_bfloat16 *host_out,
+                                                __nv_bfloat16_raw *host_out,
                                                 cudaStream_t stream)
 {
     return tomoMax(in, len, host_out, stream);
@@ -238,17 +249,17 @@ cudaError_t tomoL2Norm(T const *a,
                          { return lhs + rhs * rhs; }, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL2NormH(half const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL2NormH(__half_raw const *a,
                                                    size_t len,
-                                                   half *host_out,
+                                                   __half_raw *host_out,
                                                    cudaStream_t stream)
 {
     return tomoL2Norm(a, len, host_out, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL2NormB(__nv_bfloat16 const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL2NormB(__nv_bfloat16_raw const *a,
                                                    size_t len,
-                                                   __nv_bfloat16 *host_out,
+                                                   __nv_bfloat16_raw *host_out,
                                                    cudaStream_t stream)
 {
     return tomoL2Norm(a, len, host_out, stream);
@@ -280,17 +291,17 @@ cudaError_t tomoL1Norm(T const *a,
                          { return lhs + abs(rhs); }, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL1NormH(half const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL1NormH(__half_raw const *a,
                                                    size_t len,
-                                                   half *host_out,
+                                                   __half_raw *host_out,
                                                    cudaStream_t stream)
 {
     return tomoL1Norm(a, len, host_out, stream);
 }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL1NormB(__nv_bfloat16 const *a,
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoL1NormB(__nv_bfloat16_raw const *a,
                                                    size_t len,
-                                                   __nv_bfloat16 *host_out,
+                                                   __nv_bfloat16_raw *host_out,
                                                    cudaStream_t stream)
 {
     return tomoL1Norm(a, len, host_out, stream);
