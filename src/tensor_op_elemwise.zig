@@ -5,6 +5,7 @@ const Stream = @import("stream.zig").Stream;
 const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const TensorOpReduction = @import("tensor_op_reduction.zig").TensorOpReduction;
+const Bf16 = @import("bf16.zig").BF16;
 
 pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
     return struct {
@@ -303,6 +304,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn sin(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSinB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSinH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSinF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -315,6 +322,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn cos(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoCosB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoCosH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoCosF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -327,6 +340,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn tan(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoTanB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoTanH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoTanF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -339,6 +358,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn relu(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoReluB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoReluH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoReluF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -351,6 +376,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn leakyRelu(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoLeakyReluB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoLeakyReluH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoLeakyReluF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -363,6 +394,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn inv(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoInvB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoInvH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoInvF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -379,6 +416,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoEluB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoEluH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoEluF(self.ptr, self.getLen(), alpha, stream.stream));
                 },
@@ -396,6 +439,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSeluB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSeluH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSeluF(self.ptr, self.getLen(), alpha, lambda, stream.stream));
                 },
@@ -411,6 +460,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSoftplusB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSoftplusH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSoftplusF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -426,6 +481,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSigmoidB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSigmoidH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSigmoidF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -441,6 +502,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoTanhB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoTanhH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoTanhF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -456,6 +523,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSwishB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSwishH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSwishF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -471,6 +544,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoGeluB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoGeluH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoGeluF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -486,6 +565,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoHardSigmoidB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoHardSigmoidH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoHardSigmoidF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -501,6 +586,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoHardSwishB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoHardSwishH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoHardSwishF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -516,6 +607,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSoftsignB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSoftsignH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSoftsignF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -531,6 +628,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSquareB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSquareH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSquareF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -546,6 +649,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSqrtB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSqrtH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSqrtF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -561,6 +670,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoLogB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoLogH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoLogF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -576,6 +691,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoExpB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoExpH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoExpF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -591,6 +712,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoAbsB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoAbsH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoAbsF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -607,6 +734,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoScaleB(@ptrCast(self.ptr), self.getLen(), @bitCast(factor), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoScaleH(@ptrCast(self.ptr), self.getLen(), @bitCast(factor), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoScaleF(self.ptr, self.getLen(), factor, stream.stream));
                 },
@@ -623,6 +756,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoPowfB(@ptrCast(self.ptr), self.getLen(), @bitCast(exponent), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoPowfH(@ptrCast(self.ptr), self.getLen(), @bitCast(exponent), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoPowfF(self.ptr, self.getLen(), exponent, stream.stream));
                 },
@@ -639,6 +778,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoPowB(@ptrCast(self.ptr), self.getLen(), @intCast(exponent), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoPowH(@ptrCast(self.ptr), self.getLen(), @intCast(exponent), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoPowF(self.ptr, self.getLen(), @intCast(exponent), stream.stream));
                 },
@@ -656,6 +801,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoClampB(@ptrCast(self.ptr), self.getLen(), lower, upper, stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoClampH(@ptrCast(self.ptr), self.getLen(), lower, upper, stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoClampF(self.ptr, self.getLen(), lower, upper, stream.stream));
                 },
@@ -671,6 +822,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoCeilB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoCeilH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoCeilF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -686,6 +843,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoFloorB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoFloorH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoFloorF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -702,6 +865,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoShiftB(@ptrCast(self.ptr), self.getLen(), @bitCast(offset), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoShiftH(@ptrCast(self.ptr), self.getLen(), @bitCast(offset), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoShiftF(self.ptr, self.getLen(), offset, stream.stream));
                 },
@@ -719,6 +888,12 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoScaleShiftB(@ptrCast(self.ptr), self.getLen(), factor, offset, stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoScaleShiftH(@ptrCast(self.ptr), self.getLen(), factor, offset, stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoScaleShiftF(self.ptr, self.getLen(), factor, offset, stream.stream));
                 },

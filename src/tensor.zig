@@ -267,6 +267,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
 
         const Self = @This();
         const Base = TensorBase(rank);
+        pub const Elem = T;
 
         pub fn getLen(self: *const Self) usize {
             return self.base.countElem();

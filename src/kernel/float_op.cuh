@@ -143,16 +143,14 @@ inline __device__ __nv_bfloat16_raw floor(__nv_bfloat16_raw x)
     return hfloor(x);
 }
 
-inline __host__ __device__ __half_raw operator+(const __half_raw &lh, const __half_raw &rh) { return __hadd(lh, rh); }
-inline __host__ __device__ __half_raw operator-(const __half_raw &lh, const __half_raw &rh) { return __hsub(lh, rh); }
-inline __host__ __device__ __half_raw operator-(const __half_raw &lh) { return -lh; }
-inline __host__ __device__ __half_raw operator*(const __half_raw &lh, const __half_raw &rh) { return __hmul(lh, rh); }
-inline __host__ __device__ __half_raw operator/(const __half_raw &lh, const __half_raw &rh) { return __hdiv(lh, rh); }
+inline __host__ __device__ __half_raw operator+(__half_raw const &lh, __half_raw const &rh) { return __hadd(lh, rh); }
+inline __host__ __device__ __half_raw operator-(__half_raw const &lh, __half_raw const &rh) { return __hsub(lh, rh); }
+inline __host__ __device__ __half_raw operator-(__half_raw const &lh) { return -__half{lh}; }
+inline __host__ __device__ __half_raw operator*(__half_raw const &lh, __half_raw const &rh) { return __hmul(lh, rh); }
+inline __host__ __device__ __half_raw operator/(__half_raw const &lh, __half_raw const &rh) { return __hdiv(lh, rh); }
 
-inline __host__ __device__ __nv_bfloat16_raw operator+(const __nv_bfloat16_raw &lh, const __nv_bfloat16_raw &rh) { return __nv_bfloat16{lh} + __nv_bfloat16{rh}; }
-inline __host__ __device__ __nv_bfloat16_raw operator-(const __nv_bfloat16_raw &lh) { return -__nv_bfloat16{lh}; }
-inline __host__ __device__ __nv_bfloat16_raw operator-(const __nv_bfloat16_raw &lh, const __nv_bfloat16_raw &rh) { return __nv_bfloat16{lh} - __nv_bfloat16{rh}; }
-inline __host__ __device__ __nv_bfloat16_raw operator*(const __nv_bfloat16_raw &lh, const __nv_bfloat16_raw &rh) { return __nv_bfloat16{lh} * __nv_bfloat16{rh}; }
-inline __host__ __device__ __nv_bfloat16_raw operator/(const __nv_bfloat16_raw &lh, const __nv_bfloat16_raw &rh) { return __nv_bfloat16{lh} / __nv_bfloat16{rh}; }
-
-
+inline __host__ __device__ __nv_bfloat16_raw operator+(__nv_bfloat16_raw const &lh, __nv_bfloat16_raw const &rh) { return __nv_bfloat16{lh} + __nv_bfloat16{rh}; }
+inline __host__ __device__ __nv_bfloat16_raw operator-(__nv_bfloat16_raw const &lh) { return -__nv_bfloat16{lh}; }
+inline __host__ __device__ __nv_bfloat16_raw operator-(__nv_bfloat16_raw const &lh, __nv_bfloat16_raw const &rh) { return __nv_bfloat16{lh} - __nv_bfloat16{rh}; }
+inline __host__ __device__ __nv_bfloat16_raw operator*(__nv_bfloat16_raw const &lh, __nv_bfloat16_raw const &rh) { return __nv_bfloat16{lh} * __nv_bfloat16{rh}; }
+inline __host__ __device__ __nv_bfloat16_raw operator/(__nv_bfloat16_raw const &lh, __nv_bfloat16_raw const &rh) { return __nv_bfloat16{lh} / __nv_bfloat16{rh}; }

@@ -4,6 +4,7 @@ const err = @import("error.zig");
 const Stream = @import("stream.zig").Stream;
 const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
+const Bf16 = @import("bf16.zig").BF16;
 
 pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
     return struct {
@@ -15,6 +16,12 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             result: *T,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSumReduceB(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSumReduceH(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSumReduceF(self.ptr, self.getLen(), result, stream.stream));
                 },
@@ -31,6 +38,12 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             result: *T,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoMeanB(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoMeanH(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoMeanF(self.ptr, self.getLen(), result, stream.stream));
                 },
@@ -47,6 +60,12 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             result: *T,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoMinB(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoMinH(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoMinF(self.ptr, self.getLen(), result, stream.stream));
                 },
@@ -57,30 +76,18 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        // pub fn minIdx(
-        //     self: *Self,
-        //     cuda_context: *const CudaContext,
-        //     stream: *const Stream,
-        //     result: *T,
-        //     result_idx: *usize,
-        // ) !void {
-        //     switch (T) {
-        //         f32 => {
-        //             try err.checkCuda(c.tomoArgMinF(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-        //         },
-        //         f64 => {
-        //             try err.checkCuda(c.tomoArgMinD(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-        //         },
-        //         else => unreachable,
-        //     }
-        // }
-
         pub fn max(
             self: *Self,
             stream: *const Stream,
             result: *T,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoMaxB(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoMaxH(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoMaxF(self.ptr, self.getLen(), result, stream.stream));
                 },
@@ -91,30 +98,18 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        // pub fn maxIdx(
-        //     self: *Self,
-        //     cuda_context: *const CudaContext,
-        //     stream: *const Stream,
-        //     result: *T,
-        //     result_idx: *usize,
-        // ) !void {
-        //     switch (T) {
-        //         f32 => {
-        //             try err.checkCuda(c.tomoArgMaxF(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-        //         },
-        //         f64 => {
-        //             try err.checkCuda(c.tomoArgMaxD(self.ptr, self.getLen(), result, result_idx, cuda_context.threads_per_block, stream.stream));
-        //         },
-        //         else => unreachable,
-        //     }
-        // }
-
         pub fn l1Norm(
             self: *Self,
             stream: *const Stream,
             result: *T,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoL1NormB(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoL1NormH(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoL1NormF(self.ptr, self.getLen(), result, stream.stream));
                 },
@@ -131,6 +126,12 @@ pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
             result: *T,
         ) !void {
             switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoL2NormB(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoL2NormH(@ptrCast(self.ptr), self.getLen(), @ptrCast(result), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoL2NormF(self.ptr, self.getLen(), result, stream.stream));
                 },

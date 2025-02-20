@@ -1,7 +1,17 @@
+const std = @import("std");
 const c = @import("c_trans.zig");
 
-pub const BF16 = struct {
+pub const BF16 = extern struct {
     val: c.__nv_bfloat16_raw,
+
+    pub fn format(
+        self: BF16,
+        comptime fmt: []const u8,
+        _: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        try writer.print("{" ++ fmt ++ "}", .{self.toF32()});
+    }
 
     pub fn fromF16(val: f16) BF16 {
         return .{
@@ -15,7 +25,7 @@ pub const BF16 = struct {
         };
     }
 
-    pub fn fromF64(val: f32) BF16 {
+    pub fn fromF64(val: f64) BF16 {
         return .{
             .val = c.tomoF64ToBf16(val),
         };

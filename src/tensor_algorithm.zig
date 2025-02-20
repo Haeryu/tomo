@@ -39,7 +39,7 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
                     try err.checkCuda(c.tomoSortAscF(self.ptr, self.getLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSortAscF(self.ptr, self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortAscD(self.ptr, self.getLen(), stream.stream));
                 },
                 else => unreachable,
             }
