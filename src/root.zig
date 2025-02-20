@@ -9,5 +9,6 @@ pub const stream = @import("stream.zig");
 pub const allocator = @import("allocator.zig");
 pub const err = @import("error.zig");
 pub const cuda_context = @import("cuda_context.zig");
+pub const BF16 = @import("bf16.zig").BF16;
 
 test {}
