@@ -4,6 +4,7 @@ const err = @import("error.zig");
 const Stream = @import("stream.zig").Stream;
 const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
+const BF16 = @import("bf16.zig").BF16;
 
 pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
     return struct {
@@ -11,6 +12,12 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn fill(self: *Self, val: T, stream: *const Stream) !void {
             switch (T) {
+                BF16 => {
+                    try err.checkCuda(c.tomoFillB(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoFillH(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoFillF(self.ptr, self.getLen(), val, stream.stream));
                 },
@@ -23,6 +30,12 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn sortDesc(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                BF16 => {
+                    try err.checkCuda(c.tomoSortDescB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSortDescH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSortDescF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -35,6 +48,12 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn sortAsc(self: *Self, stream: *const Stream) !void {
             switch (T) {
+                BF16 => {
+                    try err.checkCuda(c.tomoSortAscB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSortAscH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoSortAscF(self.ptr, self.getLen(), stream.stream));
                 },
@@ -47,6 +66,12 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn find(self: *const Self, val: T, stream: *const Stream, i: *usize) !void {
             switch (T) {
+                BF16 => {
+                    try err.checkCuda(c.tomoFindB(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream, i));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoFindH(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream, i));
+                },
                 f32 => {
                     try err.checkCuda(c.tomoFindF(self.ptr, self.getLen(), val, stream, i));
                 },
