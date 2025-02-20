@@ -10171,6 +10171,14 @@ pub extern fn tomoL1NormF(a: [*c]const f32, len: usize, host_out: [*c]f32, strea
 pub extern fn tomoL1NormD(a: [*c]const f64, len: usize, host_out: [*c]f64, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoL2NormF(a: [*c]const f32, len: usize, host_out: [*c]f32, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoL2NormD(a: [*c]const f64, len: usize, host_out: [*c]f64, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFillF(a: [*c]f32, len: usize, val: f32, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFillD(a: [*c]f64, len: usize, val: f64, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoSortDescF(a: [*c]f32, len: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoSortDescD(a: [*c]f64, len: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoSortAscF(a: [*c]f32, len: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoSortAscD(a: [*c]f64, len: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFindF(a: [*c]f32, len: usize, val: f32, stream: cudaStream_t, i: [*c]usize) cudaError_t;
+pub extern fn tomoFindD(a: [*c]f64, len: usize, val: f64, stream: cudaStream_t, i: [*c]usize) cudaError_t;
 pub const __llvm__ = @as(c_int, 1);
 pub const __clang__ = @as(c_int, 1);
 pub const __clang_major__ = @as(c_int, 19);

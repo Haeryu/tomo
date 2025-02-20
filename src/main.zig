@@ -88,8 +88,11 @@ pub fn main() !void {
     try device_tensor_matmul_res.powf(0.5, &stream);
 
     try device_tensor_matmul_res.softmax(&stream);
+    // try device_tensor_matmul_res.mulAssign(&device_tensor_matmul_res, &cuda_context, &stream);
+    try device_tensor_matmul_res.sortAsc(&stream);
 
-    try stream.sync();
+    try device_tensor_matmul_res.fill(0.123, &stream);
+
     var sum: F = 0.0;
     try device_tensor_matmul_res.sumReduce(&stream, &sum);
 

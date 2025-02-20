@@ -57,7 +57,7 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn gmm(
+        pub fn dgmm(
             self: *const Self,
             side: c.cublasSideMode_t,
             x: *const Self,
@@ -183,6 +183,15 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             try self.axpy(1, cuda_context.cublas_handle, stream, result);
         }
 
+        pub fn addAssign(
+            self: *Self,
+            other: *const Self,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            try other.axpy(1, cuda_context.cublas_handle, stream, self);
+        }
+
         pub fn sub(
             self: *const Self,
             other: *const Self,
@@ -192,13 +201,16 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         ) !void {
             std.debug.assert(result.ptr != null); // initialized and synced\
             try result.writeAsync(other.ptr.?, other.getLen(), 0, stream);
-            try self.axpy(
-                other,
-                -1,
-                cuda_context.cublas_handle,
-                stream,
-                result,
-            );
+            try result.axpy(-1.0, cuda_context.cublas_handle, stream, self);
+        }
+
+        pub fn subAssign(
+            self: *Self,
+            other: *const Self,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            try other.axpy(-1.0, cuda_context.cublas_handle, stream, self);
         }
 
         pub fn mul(
@@ -210,12 +222,27 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
         ) !void {
             std.debug.assert(result.ptr != null); // initialized and synced
             try result.writeAsync(other.ptr.?, other.getLen(), 0, stream);
-            try self.gmm(
+            try self.dgmm(
                 c.CUBLAS_SIDE_RIGHT,
                 other,
                 cuda_context,
                 stream,
                 result,
+            );
+        }
+
+        pub fn mulAssign(
+            self: *Self,
+            other: *const Self,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !void {
+            try other.dgmm(
+                c.CUBLAS_SIDE_RIGHT,
+                self,
+                cuda_context,
+                stream,
+                self,
             );
         }
 
@@ -706,7 +733,7 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             self: *Self,
             stream: *const Stream,
         ) !void {
-            var max = -std.math.floatMax(T);
+            var max: T = 0.0;
             try self.max(stream, &max);
             try stream.sync();
             try self.shift(-max, stream);
