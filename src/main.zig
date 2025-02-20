@@ -91,7 +91,7 @@ pub fn main() !void {
     // try device_tensor_matmul_res.mulAssign(&device_tensor_matmul_res, &cuda_context, &stream);
     try device_tensor_matmul_res.sortAsc(&stream);
 
-    try device_tensor_matmul_res.fill(0.123, &stream);
+    //  try device_tensor_matmul_res.fill(0.123, &stream);
 
     var sum: F = 0.0;
     try device_tensor_matmul_res.sumReduce(&stream, &sum);

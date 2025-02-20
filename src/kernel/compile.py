@@ -70,4 +70,5 @@ if __name__ == "__main__":
                             "--expt-relaxed-constexpr",
                             "--use_fast_math", 
                             "--extended-lambda",
+                            "--diag-suppress=221",
                                         ])  
