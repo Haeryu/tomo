@@ -3,6 +3,7 @@ pub usingnamespace @cImport({
     @cInclude("cuda_runtime.h");
     @cInclude("device_launch_parameters.h");
     @cInclude("cublas_v2.h");
+    @cInclude("cublasLt.h");
     @cInclude("cudnn.h");
     @cInclude("curand.h");
     @cInclude("cufft.h");

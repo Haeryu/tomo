@@ -5,6 +5,7 @@ const Stream = @import("stream.zig").Stream;
 const CudaContext = @import("cuda_context.zig").CudaContext;
 const TensorOp = @import("tensor_op.zig").TensorOp;
 const TensorFillRandom = @import("tensor_fill_random.zig").TensorFillRandom;
+const BF16 = @import("bf16.zig").BF16;
 
 pub fn TensorBase(comptime rank: comptime_int) type {
     return struct {
@@ -390,6 +391,16 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
 
         // TODO
         // pub fn contiguousDevice(self: *Self, stream: *const Stream) !Self {}
+
+        pub fn getCudaDatatype() c_int {
+            switch (T) {
+                BF16 => return c.CUDA_R_16BF,
+                f16 => return c.CUDA_R_16F,
+                f32 => return c.CUDA_R_32F,
+                f64 => return c.CUDA_R_64F,
+                else => unreachable,
+            }
+        }
 
         pub usingnamespace TensorOp(T, rank);
         pub usingnamespace TensorFillRandom(T, rank);
