@@ -246,62 +246,62 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             );
         }
 
-        pub fn transpose(
-            self: *const Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-            result: *Self,
-        ) !void {
-            std.debug.assert(result.ptr != null); // initialized and synced
-            if (rank != 2) return error.OperationNotSupported;
+        // pub fn transpose(
+        //     self: *const Self,
+        //     cuda_context: *const CudaContext,
+        //     stream: *const Stream,
+        //     result: *Self,
+        // ) !void {
+        //     std.debug.assert(result.ptr != null); // initialized and synced
+        //     if (rank != 2) return error.OperationNotSupported;
 
-            const m = self.base.shape[0];
-            const n = self.base.shape[1];
+        //     const m = self.base.shape[0];
+        //     const n = self.base.shape[1];
 
-            try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
+        //     try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
 
-            const alpha: T = 1;
-            const beta: T = 0;
-            switch (T) {
-                f32 => {
-                    try err.checkCublas(c.cublasSgeam(
-                        cuda_context.cublas_handle,
-                        c.CUBLAS_OP_T,
-                        c.CUBLAS_OP_N,
-                        @intCast(m),
-                        @intCast(n),
-                        &alpha,
-                        @ptrCast(self.ptr.?),
-                        @intCast(n),
-                        &beta,
-                        @ptrCast(result.ptr.?),
-                        @intCast(m),
-                        @ptrCast(result.ptr.?),
-                        @intCast(m),
-                    ));
-                },
-                f64 => {
-                    try err.checkCublas(c.cublasDgeam(
-                        cuda_context.cublas_handle,
-                        c.CUBLAS_OP_T,
-                        c.CUBLAS_OP_N,
-                        @intCast(m),
-                        @intCast(n),
-                        &alpha,
-                        @ptrCast(self.ptr.?),
-                        @intCast(n),
-                        &beta,
-                        @ptrCast(result.ptr.?),
-                        @intCast(m),
-                        @ptrCast(result.ptr.?),
-                        @intCast(m),
-                    ));
-                },
-                else => unreachable,
-            }
-        }
+        //     const alpha: T = 1;
+        //     const beta: T = 0;
+        //     switch (T) {
+        //         f32 => {
+        //             try err.checkCublas(c.cublasSgeam(
+        //                 cuda_context.cublas_handle,
+        //                 c.CUBLAS_OP_T,
+        //                 c.CUBLAS_OP_N,
+        //                 @intCast(m),
+        //                 @intCast(n),
+        //                 &alpha,
+        //                 @ptrCast(self.ptr.?),
+        //                 @intCast(n),
+        //                 &beta,
+        //                 @ptrCast(result.ptr.?),
+        //                 @intCast(m),
+        //                 @ptrCast(result.ptr.?),
+        //                 @intCast(m),
+        //             ));
+        //         },
+        //         f64 => {
+        //             try err.checkCublas(c.cublasDgeam(
+        //                 cuda_context.cublas_handle,
+        //                 c.CUBLAS_OP_T,
+        //                 c.CUBLAS_OP_N,
+        //                 @intCast(m),
+        //                 @intCast(n),
+        //                 &alpha,
+        //                 @ptrCast(self.ptr.?),
+        //                 @intCast(n),
+        //                 &beta,
+        //                 @ptrCast(result.ptr.?),
+        //                 @intCast(m),
+        //                 @ptrCast(result.ptr.?),
+        //                 @intCast(m),
+        //             ));
+        //         },
+        //         else => unreachable,
+        //     }
+        // }
 
-        pub fn matmul(
+        pub fn matmulTransposed(
             self: *const Self,
             self_transpose: bool,
             other: *const Self,
@@ -317,26 +317,26 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
         ) !void {
             comptime std.debug.assert(rank == 2 or rank == 3);
 
-            const batch_count = if (rank == 2) 0 else self.base.shape[0];
+            const batch_count: c_int = if (rank == 2) 0 else @intCast(self.base.shape[0]);
 
-            if (rank == 3) {
-                comptime std.debug.assert(self.base.shape[0] == other.base.shape[0]);
-                comptime std.debug.assert(self.base.shape[0] == out.base.shape[0]);
-                comptime std.debug.assert(self.base.shape[0] == bias.base.shape[0]);
-                comptime std.debug.assert(self.base.shape[0] == pre_gelu.base.shape[0]);
-            }
+            // if (rank == 3) {
+            //     std.debug.assert(self.base.shape[0] == other.base.shape[0]);
+            //     std.debug.assert(self.base.shape[0] == out.base.shape[0]);
+            //     std.debug.assert(self.base.shape[0] == bias.base.shape[0]);
+            //     std.debug.assert(self.base.shape[0] == pre_gelu.base.shape[0]);
+            // }
 
-            const a_row = self.base.shape[self.base.shape.len - 2];
-            const a_col = self.base.shape[self.base.shape.len - 1];
+            const self_row = self.base.shape[self.base.shape.len - 2];
+            const self_col = self.base.shape[self.base.shape.len - 1];
 
-            const b_row = other.base.shape[other.base.shape.len - 2];
-            const b_col = other.base.shape[other.base.shape.len - 1];
+            const other_row = other.base.shape[other.base.shape.len - 2];
+            const other_col = other.base.shape[other.base.shape.len - 1];
 
             const out_row = out.base.shape[out.base.shape.len - 2];
             const out_col = out.base.shape[out.base.shape.len - 1];
 
-            const stride_a = a_row * a_col;
-            const stride_b = b_row * b_col;
+            const stride_a = self_row * self_col;
+            const stride_b = other_row * other_col;
             const stride_out = out_row * out_col;
 
             var matmul_desc: c.cublasLtMatmulDesc_t = null;
@@ -361,19 +361,21 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             ));
 
             var self_layout: c.cublasLtMatrixLayout_t = null;
-            if (self_transpose) {
-                try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), a_row, a_col, @intCast(a_row)));
-            } else {
-                try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), a_col, a_row, @intCast(a_col)));
-            }
+            // if (self_transpose) {
+            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), self_row, self_col, @intCast(self_row)));
+            // } else {
+            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), self_col, self_row, @intCast(self_col)));
+            // }
+            try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), self_col, self_row, @intCast(self_col)));
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
 
             var other_layout: c.cublasLtMatrixLayout_t = null;
-            if (other_transpose) {
-                try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), b_row, b_col, @intCast(b_row)));
-            } else {
-                try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), b_col, b_row, @intCast(b_col)));
-            }
+            // if (other_transpose) {
+            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), other_row, other_col, @intCast(other_row)));
+            // } else {
+            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), other_col, other_row, @intCast(other_col)));
+            // }
+            try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), other_col, other_row, @intCast(other_col)));
             defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
 
             var c_layout: c.cublasLtMatrixLayout_t = null;
@@ -450,7 +452,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             var epilogue: c.cublasLtEpilogue_t = c.CUBLASLT_EPILOGUE_DEFAULT;
 
             if (pre_gelu) |gelu| {
-                const gelu_row = self.base.shape[1];
+                const gelu_row = self_row;
                 try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                     matmul_desc,
                     c.CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_LD,
@@ -546,5 +548,16 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 stream.stream,
             ));
         }
+
+        // pub fn transpose(
+        //     self: *const Self,
+        //     cuda_context: *const CudaContext,
+        //     stream: *const Stream,
+        //     result: *Self,
+        // ) !void {
+        //     var matmul_desc: c.cublasLtMatmulDesc_t = null;
+        //     try err.checkCublas(c.cublasLtMatmulDescCreate(&matmul_desc, cublas_compute_type, c.CUDA_R_32F));
+        //     defer _ = c.cublasLtMatmulDescDestroy(matmul_desc);
+        // }
     };
 }
