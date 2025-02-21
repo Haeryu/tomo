@@ -27,7 +27,7 @@ cudaError_t tomoElemwiseMap(auto *a,
 
     try
     {
-        thrust::transform(thrust::device.on(stream), a, a + len, a, fn_map);
+        thrust::transform(thrust::cuda::par_nosync.on(stream), a, a + len, a, fn_map);
     }
     catch (const thrust::system_error &e)
     {

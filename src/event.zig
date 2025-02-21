@@ -21,4 +21,8 @@ pub const Event = struct {
     pub fn record(self: *const Event, stream: *const Stream) !void {
         try err.checkCuda(c.cudaEventRecord(self.event, stream.stream));
     }
+
+    pub fn wait(self: *const Event) !void {
+        try err.checkCuda(c.cudaEventSynchronize(self.event));
+    }
 };

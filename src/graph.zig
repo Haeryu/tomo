@@ -117,6 +117,7 @@ pub const Graph = struct {
         return .{ .node = node };
     }
 
+    // use tuple and @call to prevent making all host functions wrapper
     pub fn addHostNode(
         self: *Graph,
         dependencies: []const c.cudaGraphNode_t,

@@ -29,7 +29,7 @@ cudaError_t tomoReduceMap(auto const *a,
 
     try
     {
-        *host_out = thrust::reduce(thrust::device.on(stream), a, a + len, init, fn_map);
+        *host_out = thrust::reduce(thrust::cuda::par_nosync.on(stream), a, a + len, init, fn_map);
     }
     catch (const thrust::system_error &e)
     {

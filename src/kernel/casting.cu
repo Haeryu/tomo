@@ -26,7 +26,7 @@ cudaError_t tomoCast(From const *a,
 
     try
     {
-        thrust::transform(thrust::device.on(stream), a, a + len, out, [] __device__(From const &in)
+        thrust::transform(thrust::cuda::par_nosync.on(stream), a, a + len, out, [] __device__(From const &in)
                           {
             if constexpr (std::is_same_v<std::remove_cvref_t<From>, __half_raw>) {
                 return static_cast<To>(static_cast<__half>(in));

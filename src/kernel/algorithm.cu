@@ -21,7 +21,7 @@ cudaError_t tomoFill(auto *a, size_t len, auto val, cudaStream_t stream)
 
     try
     {
-        thrust::fill(thrust::device.on(stream), a, a + len, val);
+        thrust::fill(thrust::cuda::par_nosync.on(stream), a, a + len, val);
     }
     catch (const thrust::system_error &e)
     {
