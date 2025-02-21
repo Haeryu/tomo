@@ -908,15 +908,30 @@ pub fn TensorOpElemwise(comptime T: type, comptime rank: comptime_int) type {
             self: *Self,
             stream: *const Stream,
         ) !void {
-            var max: T = 0.0;
-            try self.max(stream, &max);
-            try stream.sync();
-            try self.shift(-max, stream);
-            try self.exp(stream);
-            var sum: T = 0.0;
-            try self.sumReduce(stream, &sum);
-            try stream.sync();
-            try self.scale(1.0 / sum, stream);
+            switch (T) {
+                Bf16 => {
+                    var max = Bf16.fromF32(0.0);
+                    try self.max(stream, &max);
+                    try stream.sync();
+                    try self.shift(max.neg(), stream);
+                    try self.exp(stream);
+                    var sum = Bf16.fromF32(0.0);
+                    try self.sumReduce(stream, &sum);
+                    try stream.sync();
+                    try self.scale(Bf16.fromF32(1.0).div(sum), stream);
+                },
+                else => {
+                    var max: T = 0.0;
+                    try self.max(stream, &max);
+                    try stream.sync();
+                    try self.shift(-max, stream);
+                    try self.exp(stream);
+                    var sum: T = 0.0;
+                    try self.sumReduce(stream, &sum);
+                    try stream.sync();
+                    try self.scale(1.0 / sum, stream);
+                },
+            }
         }
     };
 }

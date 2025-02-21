@@ -42,4 +42,24 @@ pub const BF16 = extern struct {
     pub fn toF64(self: BF16) f64 {
         return c.tomoBf16ToF64(self.val);
     }
+
+    pub fn add(self: BF16, other: BF16) BF16 {
+        return .{ .val = c.tomoBf16Add(self.val, other.val) };
+    }
+
+    pub fn sub(self: BF16, other: BF16) BF16 {
+        return .{ .val = c.tomoBf16Sub(self.val, other.val) };
+    }
+
+    pub fn mul(self: BF16, other: BF16) BF16 {
+        return .{ .val = c.tomoBf16Mul(self.val, other.val) };
+    }
+
+    pub fn div(self: BF16, other: BF16) BF16 {
+        return .{ .val = c.tomoBf16Div(self.val, other.val) };
+    }
+
+    pub fn neg(self: BF16) BF16 {
+        return .{ .val = c.tomoBf16Neg(self.val) };
+    }
 };

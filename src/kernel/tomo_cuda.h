@@ -6,3 +6,4 @@
 #include "reduction.h"
 #include "algorithm.h"
 #include "casting.h"
+#include "bf16_op.h"

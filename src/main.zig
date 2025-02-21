@@ -16,15 +16,18 @@ pub fn main() !void {
     const F = tm.BF16;
     // const F = f16;
 
+    const row = 300;
+    const col = 400;
+
     var device_tensor = tm.tensor.GPUTensor(F, 2){};
-    try device_tensor.initAsync(.{ 30, 40 }, &stream);
+    try device_tensor.initAsync(.{ row, col }, &stream);
     defer device_tensor.deinitAsync(&stream);
 
-    var host_tensor = try tm.tensor.CPUTensor(F, 2).init(allocator, .{ 30, 40 });
+    var host_tensor = try tm.tensor.CPUTensor(F, 2).init(allocator, .{ row, col });
     defer host_tensor.deinit(allocator);
 
-    for (0..30) |i| {
-        for (0..40) |j| {
+    for (0..row) |i| {
+        for (0..col) |j| {
             // host_tensor.at(.{ i, j }).* = @floatFromInt(i * 4 + j);
             host_tensor.at(.{ i, j }).* = F.fromF64(@floatFromInt(i * 4 + j));
         }
@@ -38,13 +41,19 @@ pub fn main() !void {
     try device_tensor.cos(&stream);
     try device_tensor.relu(&stream);
 
-    try stream.sync();
+    try device_tensor.softmax(&stream);
+
+    var sum: F = undefined;
+    try device_tensor.sumReduce(&stream, &sum);
+
+    // try stream.sync();
 
     try host_tensor.writeFromDevice(device_tensor.ptr.?, device_tensor.getLen(), 0, &stream);
     try stream.sync();
 
-    var res = try host_tensor.reshape(allocator, 1, .{30 * 40});
+    var res = try host_tensor.reshape(allocator, 1, .{row * col});
     defer res.deinit(allocator);
 
-    std.debug.print("{d}", .{res});
+    std.debug.print("{d}\n", .{res});
+    std.debug.print("{d}\n", .{sum});
 }
