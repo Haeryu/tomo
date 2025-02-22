@@ -14,15 +14,15 @@ pub fn main() !void {
     defer cuda_context.deinit();
 
     //const F = tm.BF16;
-    const F = f16;
+    const F = f32;
 
     const batch = 2;
 
-    const row1 = 2;
-    const col1 = 3;
+    const row1 = 200;
+    const col1 = 300;
 
-    const row2 = 3;
-    const col2 = 4;
+    const row2 = 300;
+    const col2 = 400;
 
     const dim = 3;
 
@@ -41,10 +41,10 @@ pub fn main() !void {
     defer host_tensor2.deinit(allocator);
 
     var device_tensor_res = tm.tensor.GPUTensor(F, dim){};
-    try device_tensor_res.initAsync(.{ batch, 4, 2 }, &stream);
+    try device_tensor_res.initAsync(.{ batch, col2, row1 }, &stream);
     defer device_tensor_res.deinitAsync(&stream);
 
-    var host_tensor_res = try tm.tensor.CPUTensor(F, dim).init(allocator, .{ batch, 4, 2 });
+    var host_tensor_res = try tm.tensor.CPUTensor(F, dim).init(allocator, .{ batch, col2, row1 });
     defer host_tensor_res.deinit(allocator);
 
     // var device_tensor_bias = tm.tensor.GPUTensor(F, dim){};
@@ -95,7 +95,7 @@ pub fn main() !void {
         null,
         false,
         false,
-        tm.c.CUBLAS_COMPUTE_16F,
+        tm.c.CUBLAS_COMPUTE_32F,
         &stream,
         &cuda_context,
         &device_tensor_res,

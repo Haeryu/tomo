@@ -301,14 +301,49 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
         //     }
         // }
 
+        // TODO: make function to create and set cublaslt matrix layout to use it at cublasLtMatrixTransform
+        // TODO: support many activation function => make class that control CUBLASLT_MATMUL_DESC_EPILOGUE_XXX
+        // TODO: make small piece (policy) -> fuse
+
+        pub fn getCublasLtMatrixLayout(self: *const Self) !c.cublasLtMatrixLayout_t {
+            const batch_count: c_int = if (rank == 2) 0 else @intCast(self.base.shape[0]);
+            const row = self.base.shape[self.base.shape.len - 2];
+            const col = self.base.shape[self.base.shape.len - 1];
+            const stride = row * col;
+
+            var layout: c.cublasLtMatrixLayout_t = null;
+            try err.checkCublas(
+                c.cublasLtMatrixLayoutCreate(&layout, @intCast(Self.getCudaDatatype()), col, row, @intCast(col)),
+            );
+            errdefer _ = c.cublasLtMatrixLayoutDestroy(layout);
+
+            if (batch_count != 0) {
+                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
+                    layout,
+                    c.CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
+                    &batch_count,
+                    @sizeOf(@TypeOf(batch_count)),
+                ));
+
+                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
+                    layout,
+                    c.CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET,
+                    &stride,
+                    @sizeOf(@TypeOf(stride)),
+                ));
+            }
+
+            return layout;
+        }
+
         pub fn matmulTransposed(
             self: *const Self,
             self_transpose: bool,
             other: *const Self,
             other_transpose: bool,
-            bias: ?*const Self,
-            pre_gelu: ?*Self,
-            backward: bool,
+            bias: ?*const Self, // TODO Epilogue struct
+            pre_gelu: ?*Self, // TODO Epilogue struct
+            backward: bool, // TODO Epilogue struct
             accumulate: bool,
             cublas_compute_type: c.cublasComputeType_t,
             stream: *const Stream,
@@ -316,28 +351,6 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             out: *Self,
         ) !void {
             comptime std.debug.assert(rank == 2 or rank == 3);
-
-            const batch_count: c_int = if (rank == 2) 0 else @intCast(self.base.shape[0]);
-
-            // if (rank == 3) {
-            //     std.debug.assert(self.base.shape[0] == other.base.shape[0]);
-            //     std.debug.assert(self.base.shape[0] == out.base.shape[0]);
-            //     std.debug.assert(self.base.shape[0] == bias.base.shape[0]);
-            //     std.debug.assert(self.base.shape[0] == pre_gelu.base.shape[0]);
-            // }
-
-            const self_row = self.base.shape[self.base.shape.len - 2];
-            const self_col = self.base.shape[self.base.shape.len - 1];
-
-            const other_row = other.base.shape[other.base.shape.len - 2];
-            const other_col = other.base.shape[other.base.shape.len - 1];
-
-            const out_row = out.base.shape[out.base.shape.len - 2];
-            const out_col = out.base.shape[out.base.shape.len - 1];
-
-            const stride_a = self_row * self_col;
-            const stride_b = other_row * other_col;
-            const stride_out = out_row * out_col;
 
             var matmul_desc: c.cublasLtMatmulDesc_t = null;
             try err.checkCublas(c.cublasLtMatmulDescCreate(&matmul_desc, cublas_compute_type, c.CUDA_R_32F));
@@ -360,83 +373,17 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 @sizeOf(c.cublasOperation_t),
             ));
 
-            var self_layout: c.cublasLtMatrixLayout_t = null;
-            // if (self_transpose) {
-            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), self_row, self_col, @intCast(self_row)));
-            // } else {
-            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), self_col, self_row, @intCast(self_col)));
-            // }
-            try err.checkCublas(c.cublasLtMatrixLayoutCreate(&self_layout, @intCast(Self.getCudaDatatype()), self_col, self_row, @intCast(self_col)));
+            const self_layout = try self.getCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
 
-            var other_layout: c.cublasLtMatrixLayout_t = null;
-            // if (other_transpose) {
-            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), other_row, other_col, @intCast(other_row)));
-            // } else {
-            //     try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), other_col, other_row, @intCast(other_col)));
-            // }
-            try err.checkCublas(c.cublasLtMatrixLayoutCreate(&other_layout, @intCast(Self.getCudaDatatype()), other_col, other_row, @intCast(other_col)));
+            const other_layout: c.cublasLtMatrixLayout_t = try other.getCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
 
-            var c_layout: c.cublasLtMatrixLayout_t = null;
-            try err.checkCublas(c.cublasLtMatrixLayoutCreate(&c_layout, @intCast(Self.getCudaDatatype()), out_col, out_row, @intCast(out_col)));
+            const c_layout: c.cublasLtMatrixLayout_t = try out.getCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(c_layout);
 
-            var out_layout: c.cublasLtMatrixLayout_t = null;
-            try err.checkCublas(c.cublasLtMatrixLayoutCreate(&out_layout, @intCast(Self.getCudaDatatype()), out_col, out_row, @intCast(out_col)));
+            const out_layout: c.cublasLtMatrixLayout_t = try out.getCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(out_layout);
-
-            if (batch_count != 0) {
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    self_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
-                    &batch_count,
-                    @sizeOf(@TypeOf(batch_count)),
-                ));
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    other_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
-                    &batch_count,
-                    @sizeOf(@TypeOf(batch_count)),
-                ));
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    c_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
-                    &batch_count,
-                    @sizeOf(@TypeOf(batch_count)),
-                ));
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    out_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
-                    &batch_count,
-                    @sizeOf(@TypeOf(batch_count)),
-                ));
-
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    self_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET,
-                    &stride_a,
-                    @sizeOf(@TypeOf(stride_a)),
-                ));
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    other_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET,
-                    &stride_b,
-                    @sizeOf(@TypeOf(stride_b)),
-                ));
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    c_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET,
-                    &stride_out,
-                    @sizeOf(@TypeOf(stride_out)),
-                ));
-                try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
-                    out_layout,
-                    c.CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET,
-                    &stride_out,
-                    @sizeOf(@TypeOf(stride_out)),
-                ));
-            }
 
             var preference: c.cublasLtMatmulPreference_t = null;
             try err.checkCublas(c.cublasLtMatmulPreferenceCreate(&preference));
@@ -452,6 +399,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             var epilogue: c.cublasLtEpilogue_t = c.CUBLASLT_EPILOGUE_DEFAULT;
 
             if (pre_gelu) |gelu| {
+                const self_row = self.base.shape[self.base.shape.len - 2];
                 const gelu_row = self_row;
                 try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                     matmul_desc,
