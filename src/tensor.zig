@@ -7,6 +7,8 @@ const TensorOp = @import("tensor_op.zig").TensorOp;
 const TensorFillRandom = @import("tensor_fill_random.zig").TensorFillRandom;
 const BF16 = @import("bf16.zig").BF16;
 
+pub const matmul_epilogue = @import("matmul_epilogue..zig");
+
 pub fn TensorBase(comptime rank: comptime_int) type {
     return struct {
         shape: [rank]usize,

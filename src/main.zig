@@ -18,11 +18,11 @@ pub fn main() !void {
 
     const batch = 2;
 
-    const row1 = 200;
-    const col1 = 300;
+    const row1 = 2;
+    const col1 = 3;
 
-    const row2 = 300;
-    const col2 = 400;
+    const row2 = 3;
+    const col2 = 4;
 
     const dim = 3;
 
@@ -47,14 +47,14 @@ pub fn main() !void {
     var host_tensor_res = try tm.tensor.CPUTensor(F, dim).init(allocator, .{ batch, col2, row1 });
     defer host_tensor_res.deinit(allocator);
 
-    // var device_tensor_bias = tm.tensor.GPUTensor(F, dim){};
-    // try device_tensor_bias.initAsync(.{ batch, col2, row1 }, &stream);
-    // defer device_tensor_bias.deinitAsync(&stream);
-    // try device_tensor_bias.fill(1.0, &stream);
+    var device_tensor_bias = tm.tensor.GPUTensor(F, dim){};
+    try device_tensor_bias.initAsync(.{ batch, col2, row1 }, &stream);
+    defer device_tensor_bias.deinitAsync(&stream);
+    try device_tensor_bias.fill(1.0, &stream);
 
-    // var device_tensor_gelu = tm.tensor.GPUTensor(F, dim){};
-    // try device_tensor_gelu.initAsync(.{ batch, col2, row1 }, &stream);
-    // defer device_tensor_gelu.deinitAsync(&stream);
+    var device_tensor_gelu = tm.tensor.GPUTensor(F, dim){};
+    try device_tensor_gelu.initAsync(.{ batch, col2, row1 }, &stream);
+    defer device_tensor_gelu.deinitAsync(&stream);
 
     // var host_tensor_gelu = try tm.tensor.CPUTensor(F, dim).init(allocator, .{ batch, col2, row1 });
     // defer host_tensor_gelu.deinit(allocator);
@@ -87,13 +87,22 @@ pub fn main() !void {
 
     // try device_tensor1.scale(-0.1, &stream);
 
+    //const Ep = tm.tensor.matmul_epilogue.Epilogue(void, void);
+    const Ep = tm.tensor.matmul_epilogue.Epilogue(
+        tm.tensor.GPUTensor(F, dim),
+        tm.tensor.GPUTensor(F, dim),
+    );
+
     try device_tensor1.matmulTransposed(
         false,
         &device_tensor2,
         false,
-        null,
-        null,
-        false,
+        Ep,
+        Ep.Config{
+            .activation = .gelu,
+            .aux_tensor = device_tensor_gelu,
+            .bias_tensor = device_tensor_bias,
+        },
         false,
         tm.c.CUBLAS_COMPUTE_32F,
         &stream,
