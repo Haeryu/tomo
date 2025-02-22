@@ -305,7 +305,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
         // TODO: support many activation function => make class that control CUBLASLT_MATMUL_DESC_EPILOGUE_XXX
         // TODO: make small piece (policy) -> fuse
 
-        pub fn getCublasLtMatrixLayout(self: *const Self) !c.cublasLtMatrixLayout_t {
+        pub fn createCublasLtMatrixLayout(self: *const Self) !c.cublasLtMatrixLayout_t {
             const batch_count: c_int = if (rank == 2) 0 else @intCast(self.base.shape[0]);
             const row = self.base.shape[self.base.shape.len - 2];
             const col = self.base.shape[self.base.shape.len - 1];
@@ -373,16 +373,16 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 @sizeOf(c.cublasOperation_t),
             ));
 
-            const self_layout = try self.getCublasLtMatrixLayout();
+            const self_layout = try self.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
 
-            const other_layout: c.cublasLtMatrixLayout_t = try other.getCublasLtMatrixLayout();
+            const other_layout = try other.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
 
-            const c_layout: c.cublasLtMatrixLayout_t = try out.getCublasLtMatrixLayout();
+            const c_layout = try out.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(c_layout);
 
-            const out_layout: c.cublasLtMatrixLayout_t = try out.getCublasLtMatrixLayout();
+            const out_layout = try out.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(out_layout);
 
             var preference: c.cublasLtMatmulPreference_t = null;
@@ -509,3 +509,250 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
         // }
     };
 }
+
+// pub const CUBLASLT_EPILOGUE_DEFAULT: c_int = 1;
+// pub const CUBLASLT_EPILOGUE_RELU: c_int = 2;
+// pub const CUBLASLT_EPILOGUE_RELU_AUX: c_int = 130;
+// pub const CUBLASLT_EPILOGUE_BIAS: c_int = 4;
+// pub const CUBLASLT_EPILOGUE_RELU_BIAS: c_int = 6;
+// pub const CUBLASLT_EPILOGUE_RELU_AUX_BIAS: c_int = 134;
+// pub const CUBLASLT_EPILOGUE_GELU: c_int = 32;
+// pub const CUBLASLT_EPILOGUE_GELU_AUX: c_int = 160;
+// pub const CUBLASLT_EPILOGUE_GELU_BIAS: c_int = 36;
+// pub const CUBLASLT_EPILOGUE_GELU_AUX_BIAS: c_int = 164;
+
+pub fn Epilogue(comptime BiasTensor: type, comptime AuxTensor: type) type {
+    return struct {
+        pub const Activation = enum {
+            none,
+            relu,
+            gelu,
+        };
+
+        pub const Config = struct {
+            activation: Activation,
+            bias_tensor: ?BiasTensor,
+            aux_tensor: ?AuxTensor,
+        };
+
+        const Self = @This();
+
+        fn selectEpilogue(config: Config) c.cublasLtEpilogue_t {
+            switch (config.activation) {
+                .none => {
+                    if (config.bias_tensor != null) {
+                        return c.CUBLASLT_EPILOGUE_BIAS;
+                    } else {
+                        return c.CUBLASLT_EPILOGUE_DEFAULT;
+                    }
+                },
+                .relu => {
+                    if (config.bias_tensor != null) {
+                        if (config.aux_tensor != null) {
+                            return c.CUBLASLT_EPILOGUE_RELU_AUX_BIAS;
+                        } else {
+                            return c.CUBLASLT_EPILOGUE_RELU_BIAS;
+                        }
+                    } else {
+                        if (config.aux_tensor != null) {
+                            return c.CUBLASLT_EPILOGUE_RELU_AUX;
+                        } else {
+                            return c.CUBLASLT_EPILOGUE_RELU;
+                        }
+                    }
+                },
+                .gelu => {
+                    if (config.bias_tensor != null) {
+                        if (config.aux_tensor != null) {
+                            return c.CUBLASLT_EPILOGUE_GELU_AUX_BIAS;
+                        } else {
+                            return c.CUBLASLT_EPILOGUE_GELU_BIAS;
+                        }
+                    } else {
+                        if (config.aux_tensor != null) {
+                            return c.CUBLASLT_EPILOGUE_GELU_AUX;
+                        } else {
+                            return c.CUBLASLT_EPILOGUE_GELU;
+                        }
+                    }
+                },
+            }
+        }
+
+        pub fn setEpilogue(matmul_desc: c.cublasLtMatmulDesc_t, config: Config) !void {
+            const epilogue = selectEpilogue(config);
+
+            if (config.aux_tensor) |aux_buf| {
+                const aux_data_type: c.cublasDataType_t = @intCast(@TypeOf(aux_buf).getCudaDatatype());
+                const row: u64 = aux_buf.base.shape[aux_buf.base.shape.len - 2];
+                const col: u64 = aux_buf.base.shape[aux_buf.base.shape.len - 1];
+                const batch_stride: i64 = @intCast(row * col);
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_DATA_TYPE,
+                    @ptrCast(&aux_data_type),
+                    @sizeOf(@TypeOf(aux_data_type)),
+                ));
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_POINTER,
+                    @ptrCast(&aux_buf.ptr),
+                    @sizeOf(@TypeOf(aux_buf.ptr)),
+                ));
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_LD,
+                    &row,
+                    @sizeOf(@TypeOf(row)),
+                ));
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_BATCH_STRIDE,
+                    &batch_stride,
+                    @sizeOf(@TypeOf(batch_stride)),
+                ));
+            }
+
+            if (config.bias_tensor) |bias_buf| {
+                const bias_data_type: c.cublasDataType_t = @intCast(@TypeOf(bias_buf).getCudaDatatype());
+                const row: u64 = bias_buf.base.shape[bias_buf.base.shape.len - 2];
+                const col: u64 = bias_buf.base.shape[bias_buf.base.shape.len - 1];
+                const batch_stride: i64 = @intCast(row * col);
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_BIAS_DATA_TYPE,
+                    &bias_data_type,
+                    @sizeOf(@TypeOf(bias_data_type)),
+                ));
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_BIAS_POINTER,
+                    @ptrCast(&bias_buf.ptr),
+                    @sizeOf(@TypeOf(bias_buf.ptr)),
+                ));
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_BIAS_BATCH_STRIDE,
+                    @ptrCast(&batch_stride),
+                    @sizeOf(@TypeOf(batch_stride)),
+                ));
+            }
+
+            try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                matmul_desc,
+                c.CUBLASLT_MATMUL_DESC_EPILOGUE,
+                &epilogue,
+                @sizeOf(@TypeOf(epilogue)),
+            ));
+        }
+    };
+}
+
+// pub const CUBLASLT_EPILOGUE_DRELU: c_int = 136;
+// pub const CUBLASLT_EPILOGUE_DRELU_BGRAD: c_int = 152;
+// pub const CUBLASLT_EPILOGUE_DGELU: c_int = 192;
+// pub const CUBLASLT_EPILOGUE_DGELU_BGRAD: c_int = 208;
+// pub const CUBLASLT_EPILOGUE_BGRADA: c_int = 256;
+// pub const CUBLASLT_EPILOGUE_BGRADB: c_int = 512;
+pub fn DEpilogue(comptime BiasTensor: type) type {
+    return struct {
+        pub const DActivation = enum {
+            none,
+            drelu,
+            dgelu,
+        };
+
+        pub const DBiasApply = enum {
+            none,
+            a,
+            b,
+            out,
+        };
+
+        pub const Config = struct {
+            activation: DActivation,
+            bias_apply: DBiasApply,
+            bias_grad_buf: ?BiasTensor,
+        };
+
+        const Self = @This();
+
+        pub fn selectEpilogue(config: Config) c.cublasLtEpilogue_t {
+            switch (config.activation) {
+                .none => {
+                    switch (config.bias_apply) {
+                        .a => {
+                            return c.CUBLASLT_EPILOGUE_BGRADA;
+                        },
+                        .b => {
+                            return c.CUBLASLT_EPILOGUE_BGRADB;
+                        },
+                        else => unreachable,
+                    }
+                },
+                .drelu => {
+                    switch (config.bias_apply) {
+                        .none => {
+                            return c.CUBLASLT_EPILOGUE_DRELU;
+                        },
+                        .out => {
+                            return c.CUBLASLT_EPILOGUE_DRELU_BGRAD;
+                        },
+                        else => unreachable,
+                    }
+                },
+                .dgelu => {
+                    switch (config.bias_apply) {
+                        .none => {
+                            return c.CUBLASLT_EPILOGUE_DGELU;
+                        },
+                        .out => {
+                            return c.CUBLASLT_EPILOGUE_DGELU_BGRAD;
+                        },
+                        else => unreachable,
+                    }
+                },
+            }
+        }
+
+        pub fn setEpilogue(matmul_desc: c.cublasLtMatmulDesc_t, config: Config) !void {
+            const epilogue = selectEpilogue(config);
+
+            if (config.bias_buf) |bias_buf| {
+                const bias_data_type: c.cublasDataType_t = @intCast(@TypeOf(bias_buf).getCudaDatatype());
+                const row: u64 = bias_buf.base.shape[bias_buf.base.shape.len - 2];
+                const col: u64 = bias_buf.base.shape[bias_buf.base.shape.len - 1];
+                const batch_stride: i64 = @intCast(row * col);
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_BIAS_DATA_TYPE,
+                    &bias_data_type,
+                    @sizeOf(@TypeOf(bias_data_type)),
+                ));
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_BIAS_POINTER,
+                    @ptrCast(&bias_buf.ptr),
+                    @sizeOf(@TypeOf(bias_buf.ptr)),
+                ));
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_BIAS_BATCH_STRIDE,
+                    @ptrCast(&batch_stride),
+                    @sizeOf(@TypeOf(batch_stride)),
+                ));
+            }
+
+            try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                matmul_desc,
+                c.CUBLASLT_MATMUL_DESC_EPILOGUE,
+                &epilogue,
+                @sizeOf(@TypeOf(epilogue)),
+            ));
+        }
+    };
+}
+
+// pub fn Matmul(comptime Epilogue: type) type {
+//     return struct {};
+// }
