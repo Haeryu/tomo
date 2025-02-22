@@ -336,23 +336,40 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             return layout;
         }
 
+        fn TypeToCublasComputeType(comptime F: type) c.cublasComputeType_t {
+            return switch (F) {
+                f16 => c.CUBLAS_COMPUTE_16F,
+                f32 => c.CUBLAS_COMPUTE_32F,
+                f64 => c.CUBLAS_COMPUTE_64F,
+                else => unreachable,
+            };
+        }
+
         pub fn matmulTransposed(
             self: *const Self,
             self_transpose: bool,
-            other: *const Self,
+            other: anytype,
             other_transpose: bool,
+            add_tensor: anytype,
+            add_transpose: bool,
+            comptime CublasComputeType: type,
+            alpha: if (CublasComputeType == f16) f16 else f32,
+            beta: if (CublasComputeType == f16) f16 else f32,
             comptime EpilogueT: type,
             epilogue_config: EpilogueT.Config,
-            accumulate: bool,
-            cublas_compute_type: c.cublasComputeType_t,
+            //cublas_compute_type: c.cublasComputeType_t,
             stream: *const Stream,
             cuda_context: *const CudaContext,
-            out: *Self,
+            out: anytype,
         ) !void {
             comptime std.debug.assert(rank == 2 or rank == 3);
 
             var matmul_desc: c.cublasLtMatmulDesc_t = null;
-            try err.checkCublas(c.cublasLtMatmulDescCreate(&matmul_desc, cublas_compute_type, c.CUDA_R_32F));
+            try err.checkCublas(c.cublasLtMatmulDescCreate(
+                &matmul_desc,
+                TypeToCublasComputeType(CublasComputeType),
+                c.CUDA_R_32F,
+            ));
             defer _ = c.cublasLtMatmulDescDestroy(matmul_desc);
 
             const op_no_t: c.cublasOperation_t = c.CUBLAS_OP_N;
@@ -371,6 +388,13 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 if (other_transpose) &op_no_t else &op_t,
                 @sizeOf(c.cublasOperation_t),
             ));
+            try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                matmul_desc,
+                c.CUBLASLT_MATMUL_DESC_TRANSC,
+                // row major -> already transposed
+                if (add_transpose) &op_no_t else &op_t,
+                @sizeOf(c.cublasOperation_t),
+            ));
 
             const self_layout = try self.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
@@ -378,8 +402,8 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             const other_layout = try other.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
 
-            const c_layout = try out.createCublasLtMatrixLayout();
-            defer _ = c.cublasLtMatrixLayoutDestroy(c_layout);
+            const add_layout = try add_tensor.createCublasLtMatrixLayout();
+            defer _ = c.cublasLtMatrixLayoutDestroy(add_layout);
 
             const out_layout = try out.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(out_layout);
@@ -397,7 +421,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
 
             try EpilogueT.setEpilogue(matmul_desc, epilogue_config);
 
-            const scale_type: c.cublasDataType_t = if (T == f16) c.CUDA_R_16F else c.CUDA_R_32F;
+            const scale_type: c.cudaDataType_t = if (CublasComputeType == f16) c.CUDA_R_16F else c.CUDA_R_32F;
             try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                 matmul_desc,
                 c.CUBLASLT_MATMUL_DESC_SCALE_TYPE,
@@ -412,7 +436,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 matmul_desc,
                 self_layout,
                 other_layout,
-                c_layout,
+                add_layout,
                 out_layout,
                 preference,
                 1,
@@ -424,8 +448,8 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 return err.CublasError.INTERNAL_ERROR;
             }
 
-            const alpha: if (T == f16) f16 else f32 = 1.0;
-            const beta: if (T == f16) f16 else f32 = if (accumulate) 1.0 else 0.0;
+            // const alpha: if (CublasComputeType == f16) f16 else f32 = 1.0;
+            // const beta: if (CublasComputeType == f16) f16 else f32 = if (accumulate) 1.0 else 0.0;
 
             try err.checkCublas(c.cublasLtMatmul(
                 cuda_context.cublaslt_handle,
@@ -436,8 +460,8 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 other.ptr,
                 other_layout,
                 &beta,
-                out.ptr,
-                c_layout,
+                add_tensor.ptr,
+                add_layout,
                 out.ptr,
                 out_layout,
                 &heuristic.algo,
