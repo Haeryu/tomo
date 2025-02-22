@@ -7,7 +7,7 @@ const TensorOp = @import("tensor_op.zig").TensorOp;
 const TensorFillRandom = @import("tensor_fill_random.zig").TensorFillRandom;
 const BF16 = @import("bf16.zig").BF16;
 
-pub const matmul_epilogue = @import("matmul_epilogue..zig");
+pub const matmul_epilogue = @import("tensor_op_matmul_epilogue.zig");
 
 pub fn TensorBase(comptime rank: comptime_int) type {
     return struct {
@@ -272,7 +272,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
         const Base = TensorBase(rank);
         pub const Elem = T;
 
-        pub fn getLen(self: *const Self) usize {
+        pub fn calcLen(self: *const Self) usize {
             return self.base.countElem();
         }
 
@@ -336,7 +336,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             try cloned.initAsync(self.base.shape, stream);
             errdefer cloned.deinitAsync(stream);
 
-            try cloned.writeAsync(self.ptr.?, self.getLen(), 0, stream);
+            try cloned.writeAsync(self.ptr.?, self.calcLen(), 0, stream);
 
             return cloned;
         }
@@ -363,7 +363,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             var cloned = try Self.initSync(self.shape);
             errdefer cloned.deinitSync();
 
-            try cloned.writeSync(self.ptr, self.getLen(), 0);
+            try cloned.writeSync(self.ptr, self.calcLen(), 0);
 
             return cloned;
         }
@@ -388,7 +388,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             try new_tensor.initAsync(new_shape, stream);
             errdefer new_tensor.deinitAsync(stream);
 
-            try new_tensor.writeAsync(self.ptr, self.getLen(), 0, stream);
+            try new_tensor.writeAsync(self.ptr, self.calcLen(), 0, stream);
         }
 
         // TODO
@@ -400,6 +400,14 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
                 f16 => return c.CUDA_R_16F,
                 f32 => return c.CUDA_R_32F,
                 f64 => return c.CUDA_R_64F,
+                i8 => return c.CUDA_R_8I,
+                u8 => return c.CUDA_R_8U,
+                i16 => return c.CUDA_R_16I,
+                u16 => return c.CUDA_R_16U,
+                i32 => return c.CUDA_R_32I,
+                u32 => return c.CUDA_R_32U,
+                i64 => return c.CUDA_R_64I,
+                u64 => return c.CUDA_R_64U,
                 else => unreachable,
             }
         }

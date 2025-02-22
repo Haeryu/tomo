@@ -18,10 +18,10 @@ pub fn TensorFillRandom(comptime T: type, comptime rank: comptime_int) type {
 
             switch (T) {
                 f32 => {
-                    try err.checkCurand(c.curandGenerateUniform(cuda_context.curand_generator, self.ptr, self.getLen()));
+                    try err.checkCurand(c.curandGenerateUniform(cuda_context.curand_generator, self.ptr, self.calcLen()));
                 },
                 f64 => {
-                    try err.checkCurand(c.curandGenerateUniformDouble(cuda_context.curand_generator, self.ptr, self.getLen()));
+                    try err.checkCurand(c.curandGenerateUniformDouble(cuda_context.curand_generator, self.ptr, self.calcLen()));
                 },
                 else => unreachable,
             }
@@ -52,10 +52,10 @@ pub fn TensorFillRandom(comptime T: type, comptime rank: comptime_int) type {
 
             switch (T) {
                 f32 => {
-                    try err.checkCurand(c.curandGenerateNormal(cuda_context.curand_generator, self.ptr, self.getLen(), mean, stddev));
+                    try err.checkCurand(c.curandGenerateNormal(cuda_context.curand_generator, self.ptr, self.calcLen(), mean, stddev));
                 },
                 f64 => {
-                    try err.checkCurand(c.curandGenerateNormalDouble(cuda_context.curand_generator, self.ptr, self.getLen(), mean, stddev));
+                    try err.checkCurand(c.curandGenerateNormalDouble(cuda_context.curand_generator, self.ptr, self.calcLen(), mean, stddev));
                 },
                 else => unreachable,
             }

@@ -13,16 +13,16 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
         pub fn fill(self: *Self, val: T, stream: *const Stream) !void {
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoFillB(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream.stream));
+                    try err.checkCuda(c.tomoFillB(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoFillH(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream.stream));
+                    try err.checkCuda(c.tomoFillH(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream.stream));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoFillF(self.ptr, self.getLen(), val, stream.stream));
+                    try err.checkCuda(c.tomoFillF(self.ptr, self.calcLen(), val, stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoFillD(self.ptr, self.getLen(), val, stream.stream));
+                    try err.checkCuda(c.tomoFillD(self.ptr, self.calcLen(), val, stream.stream));
                 },
                 else => unreachable,
             }
@@ -31,16 +31,16 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
         pub fn sortDesc(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoSortDescB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortDescB(@ptrCast(self.ptr), self.calcLen(), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoSortDescH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortDescH(@ptrCast(self.ptr), self.calcLen(), stream.stream));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoSortDescF(self.ptr, self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortDescF(self.ptr, self.calcLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSortDescD(self.ptr, self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortDescD(self.ptr, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -49,16 +49,16 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
         pub fn sortAsc(self: *Self, stream: *const Stream) !void {
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoSortAscB(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortAscB(@ptrCast(self.ptr), self.calcLen(), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoSortAscH(@ptrCast(self.ptr), self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortAscH(@ptrCast(self.ptr), self.calcLen(), stream.stream));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoSortAscF(self.ptr, self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortAscF(self.ptr, self.calcLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSortAscD(self.ptr, self.getLen(), stream.stream));
+                    try err.checkCuda(c.tomoSortAscD(self.ptr, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -67,16 +67,16 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
         pub fn find(self: *const Self, val: T, stream: *const Stream, i: *usize) !void {
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoFindB(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream, i));
+                    try err.checkCuda(c.tomoFindB(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream, i));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoFindH(@ptrCast(self.ptr), self.getLen(), @ptrCast(val), stream, i));
+                    try err.checkCuda(c.tomoFindH(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream, i));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoFindF(self.ptr, self.getLen(), val, stream, i));
+                    try err.checkCuda(c.tomoFindF(self.ptr, self.calcLen(), val, stream, i));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoFindD(self.ptr, self.getLen(), val, stream, i));
+                    try err.checkCuda(c.tomoFindD(self.ptr, self.calcLen(), val, stream, i));
                 },
                 else => unreachable,
             }

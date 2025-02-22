@@ -179,7 +179,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             result: *Self,
         ) !void {
             std.debug.assert(result.ptr != null); // initialized and synced
-            try result.writeAsync(other.ptr.?, other.getLen(), 0, stream);
+            try result.writeAsync(other.ptr.?, other.calcLen(), 0, stream);
             try self.axpy(1, cuda_context.cublas_handle, stream, result);
         }
 
@@ -200,7 +200,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             result: *Self,
         ) !void {
             std.debug.assert(result.ptr != null); // initialized and synced\
-            try result.writeAsync(other.ptr.?, other.getLen(), 0, stream);
+            try result.writeAsync(other.ptr.?, other.calcLen(), 0, stream);
             try result.axpy(-1.0, cuda_context.cublas_handle, stream, self);
         }
 
@@ -221,7 +221,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             result: *Self,
         ) !void {
             std.debug.assert(result.ptr != null); // initialized and synced
-            try result.writeAsync(other.ptr.?, other.getLen(), 0, stream);
+            try result.writeAsync(other.ptr.?, other.calcLen(), 0, stream);
             try self.dgmm(
                 c.CUBLAS_SIDE_RIGHT,
                 other,

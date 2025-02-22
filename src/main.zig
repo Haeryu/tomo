@@ -52,12 +52,12 @@ pub fn main() !void {
     defer device_tensor_bias.deinitAsync(&stream);
     try device_tensor_bias.fill(1.0, &stream);
 
-    var device_tensor_gelu = tm.tensor.GPUTensor(F, dim){};
-    try device_tensor_gelu.initAsync(.{ batch, col2, row1 }, &stream);
-    defer device_tensor_gelu.deinitAsync(&stream);
+    var device_tensor_aux = tm.tensor.GPUTensor(F, dim){};
+    try device_tensor_aux.initAsync(.{ batch, col2, row1 }, &stream);
+    defer device_tensor_aux.deinitAsync(&stream);
 
-    // var host_tensor_gelu = try tm.tensor.CPUTensor(F, dim).init(allocator, .{ batch, col2, row1 });
-    // defer host_tensor_gelu.deinit(allocator);
+    var host_tensor_gelu = try tm.tensor.CPUTensor(F, dim).init(allocator, .{ batch, col2, row1 });
+    defer host_tensor_gelu.deinit(allocator);
 
     for (0..row1) |i| {
         for (0..col1) |j| {
@@ -85,12 +85,12 @@ pub fn main() !void {
     try device_tensor1.writeFromHostAsync(host_tensor1.data, 0, &stream);
     try device_tensor2.writeFromHostAsync(host_tensor2.data, 0, &stream);
 
-    // try device_tensor1.scale(-0.1, &stream);
+    try device_tensor1.scale(-0.1, &stream);
 
     //const Ep = tm.tensor.matmul_epilogue.Epilogue(void, void);
     const Ep = tm.tensor.matmul_epilogue.Epilogue(
-        tm.tensor.GPUTensor(F, dim),
-        tm.tensor.GPUTensor(F, dim),
+        @TypeOf(device_tensor_bias),
+        @TypeOf(device_tensor_aux),
     );
 
     try device_tensor1.matmulTransposed(
@@ -100,8 +100,8 @@ pub fn main() !void {
         Ep,
         Ep.Config{
             .activation = .gelu,
-            .aux_tensor = device_tensor_gelu,
-            .bias_tensor = device_tensor_bias,
+            .aux_tensor = device_tensor_aux,
+            .bias_tensor = null,
         },
         false,
         tm.c.CUBLAS_COMPUTE_32F,
@@ -114,14 +114,21 @@ pub fn main() !void {
 
     try host_tensor_res.writeFromDevice(
         device_tensor_res.ptr.?,
-        device_tensor_res.getLen(),
+        device_tensor_res.calcLen(),
+        0,
+        &stream,
+    );
+
+    try host_tensor_gelu.writeFromDevice(
+        device_tensor_aux.ptr.?,
+        device_tensor_res.calcLen(),
         0,
         &stream,
     );
     try stream.sync();
 
-    std.debug.print("{d}", .{host_tensor1});
-    std.debug.print("{d}", .{host_tensor2});
-    std.debug.print("{d}", .{host_tensor_res});
-    // std.debug.print("{d}", .{host_tensor_gelu});
+    std.debug.print("A: {d}", .{host_tensor1});
+    std.debug.print("B: {d}", .{host_tensor2});
+    std.debug.print("Res: {d}", .{host_tensor_res});
+    std.debug.print("Gelu: {d}", .{host_tensor_gelu});
 }

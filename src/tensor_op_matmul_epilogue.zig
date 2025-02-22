@@ -91,8 +91,8 @@ pub fn Epilogue(comptime BiasTensor: type, comptime AuxTensor: type) type {
                 try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                     matmul_desc,
                     c.CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_LD,
-                    &row,
-                    @sizeOf(@TypeOf(row)),
+                    &col,
+                    @sizeOf(@TypeOf(col)),
                 ));
                 try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                     matmul_desc,
