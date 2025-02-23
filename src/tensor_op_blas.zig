@@ -240,7 +240,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
         pub fn matmulTransposed(
             self: *const Self,
             self_transpose: bool,
-            other: anytype,
+            other_tensor: anytype,
             other_transpose: bool,
             add_tensor: anytype,
             add_transpose: bool,
@@ -288,7 +288,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             const self_layout = try self.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
 
-            const other_layout = try other.createCublasLtMatrixLayout();
+            const other_layout = try other_tensor.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
 
             const add_layout = try add_tensor.createCublasLtMatrixLayout();
@@ -343,7 +343,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 &alpha,
                 self.ptr,
                 self_layout,
-                other.ptr,
+                other_tensor.ptr,
                 other_layout,
                 &beta,
                 add_tensor.ptr,
@@ -360,7 +360,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
         pub fn tranformTransposed(
             self: *const Self,
             self_transpose: bool,
-            other: anytype,
+            other_tensor: anytype,
             other_transpose: bool,
             comptime CublasScaleType: type,
             alpha: CublasScaleType,
@@ -396,7 +396,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             const self_layout = try self.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
 
-            const other_layout = try other.createCublasLtMatrixLayout();
+            const other_layout = try other_tensor.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
 
             const out_layout = try out.createCublasLtMatrixLayout();
@@ -419,7 +419,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 self.ptr,
                 self_layout,
                 &beta,
-                other.ptr,
+                other_tensor.ptr,
                 other_layout,
                 out.ptr,
                 out_layout,

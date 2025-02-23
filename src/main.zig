@@ -17,7 +17,7 @@ pub fn main() !void {
     const F = tm.BF16;
     // const F = f16;
 
-    const batch = 2;
+    const batch = 200;
 
     const row1 = 3;
     const col1 = 3;
@@ -60,24 +60,19 @@ pub fn main() !void {
     var host_tensor_gelu = try tm.tensor.CPUTensor(F, dim).init(allocator, .{ batch, col2, row1 });
     defer host_tensor_gelu.deinit(allocator);
 
-    for (0..row1) |i| {
-        for (0..col1) |j| {
-            host_tensor1.at(.{ 0, i, j }).* = F.fromF32(@floatFromInt(i * col1 + j));
+    for (0..batch) |b| {
+        for (0..row1) |i| {
+            for (0..col1) |j| {
+                host_tensor1.at(.{ b, i, j }).* = F.fromF32(@floatFromInt(i * col1 + j));
+            }
         }
     }
-    for (0..row1) |i| {
-        for (0..col1) |j| {
-            host_tensor1.at(.{ 1, i, j }).* = F.fromF32(@floatFromInt(i * col1 + j));
-        }
-    }
-    for (0..row2) |i| {
-        for (0..col2) |j| {
-            host_tensor2.at(.{ 0, i, j }).* = F.fromF32(@floatFromInt(i * col2 + j));
-        }
-    }
-    for (0..row2) |i| {
-        for (0..col2) |j| {
-            host_tensor2.at(.{ 1, i, j }).* = F.fromF32(@floatFromInt(i * col2 + j));
+
+    for (0..batch) |b| {
+        for (0..row2) |i| {
+            for (0..col2) |j| {
+                host_tensor2.at(.{ b, i, j }).* = F.fromF32(@floatFromInt(i * col2 + j));
+            }
         }
     }
 
@@ -85,6 +80,8 @@ pub fn main() !void {
 
     try device_tensor1.writeFromHostAsync(host_tensor1.data, 0, &stream);
     try device_tensor2.writeFromHostAsync(host_tensor2.data, 0, &stream);
+
+    try stream.sync();
 
     // try device_tensor1.scale(-0.1, &stream);
 
