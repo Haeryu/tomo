@@ -1,6 +1,7 @@
 const tm = @import("tomo_lib");
 const std = @import("std");
 
+// TODO: make Tensor operation small piece use Expression template -> fuse
 pub fn main() !void {
     const allocator = tm.allocator.cuda_pinned_allocator;
 

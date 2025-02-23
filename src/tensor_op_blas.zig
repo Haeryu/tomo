@@ -179,10 +179,6 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             );
         }
 
-        // TODO: make function to create and set cublaslt matrix layout to use it at cublasLtMatrixTransform
-        // TODO: support many activation function => make class that control CUBLASLT_MATMUL_DESC_EPILOGUE_XXX
-        // TODO: make small piece (policy) -> fuse
-
         pub fn createCublasLtMatrixLayout(self: *const Self) !c.cublasLtMatrixLayout_t {
             const batch_count: c_int = if (rank == 2) 0 else @intCast(self.base.shape[0]);
             const row: u64 = self.base.shape[self.base.shape.len - 2];
