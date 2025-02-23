@@ -14,8 +14,8 @@ pub fn main() !void {
     var cuda_context = try tm.cuda_context.CudaContext.init();
     defer cuda_context.deinit();
 
-    //const F = tm.BF16;
-    const F = f32;
+    const F = tm.BF16;
+    // const F = f16;
 
     const batch = 2;
 
@@ -51,7 +51,7 @@ pub fn main() !void {
     var device_tensor_bias = tm.tensor.GPUTensor(F, dim){};
     try device_tensor_bias.initAsync(.{ batch, col2, row1 }, &stream);
     defer device_tensor_bias.deinitAsync(&stream);
-    try device_tensor_bias.fill(1.0, &stream);
+    try device_tensor_bias.fill(F.fromF32(1.0), &stream);
 
     var device_tensor_aux = tm.tensor.GPUTensor(F, dim){};
     try device_tensor_aux.initAsync(.{ batch, col2, row1 }, &stream);
@@ -62,22 +62,22 @@ pub fn main() !void {
 
     for (0..row1) |i| {
         for (0..col1) |j| {
-            host_tensor1.at(.{ 0, i, j }).* = @floatFromInt(i * col1 + j);
+            host_tensor1.at(.{ 0, i, j }).* = F.fromF32(@floatFromInt(i * col1 + j));
         }
     }
     for (0..row1) |i| {
         for (0..col1) |j| {
-            host_tensor1.at(.{ 1, i, j }).* = @floatFromInt(i * col1 + j);
+            host_tensor1.at(.{ 1, i, j }).* = F.fromF32(@floatFromInt(i * col1 + j));
         }
     }
     for (0..row2) |i| {
         for (0..col2) |j| {
-            host_tensor2.at(.{ 0, i, j }).* = @floatFromInt(i * col2 + j);
+            host_tensor2.at(.{ 0, i, j }).* = F.fromF32(@floatFromInt(i * col2 + j));
         }
     }
     for (0..row2) |i| {
         for (0..col2) |j| {
-            host_tensor2.at(.{ 1, i, j }).* = @floatFromInt(i * col2 + j);
+            host_tensor2.at(.{ 1, i, j }).* = F.fromF32(@floatFromInt(i * col2 + j));
         }
     }
 
@@ -140,9 +140,9 @@ pub fn main() !void {
         false,
         &device_tensor2,
         false,
-        f32,
-        1.0,
-        1.0,
+        F,
+        F.fromF32(1.0),
+        F.fromF32(1.0),
         &cuda_context,
         &stream,
         &device_tensor_res,

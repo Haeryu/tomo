@@ -13,10 +13,10 @@ pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
         pub fn fill(self: *Self, val: T, stream: *const Stream) !void {
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoFillB(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream.stream));
+                    try err.checkCuda(c.tomoFillB(@ptrCast(self.ptr), self.calcLen(), val.val, stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoFillH(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream.stream));
+                    try err.checkCuda(c.tomoFillH(@ptrCast(self.ptr), self.calcLen(), @bitCast(val), stream.stream));
                 },
                 f32 => {
                     try err.checkCuda(c.tomoFillF(self.ptr, self.calcLen(), val, stream.stream));

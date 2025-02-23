@@ -229,6 +229,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
 
         fn TypeToCudaDataType(comptime F: type) c.cudaDataType_t {
             return switch (F) {
+                Bf16 => c.CUDA_R_16BF,
                 f16 => c.CUDA_R_16F,
                 f32 => c.CUDA_R_32F,
                 f64 => c.CUDA_R_64F,
