@@ -185,15 +185,23 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
 
         pub fn createCublasLtMatrixLayout(self: *const Self) !c.cublasLtMatrixLayout_t {
             const batch_count: c_int = if (rank == 2) 0 else @intCast(self.base.shape[0]);
-            const row = self.base.shape[self.base.shape.len - 2];
-            const col = self.base.shape[self.base.shape.len - 1];
-            const stride = row * col;
+            const row: u64 = self.base.shape[self.base.shape.len - 2];
+            const col: u64 = self.base.shape[self.base.shape.len - 1];
+            const stride: u64 = row * col;
 
             var layout: c.cublasLtMatrixLayout_t = null;
             try err.checkCublas(
                 c.cublasLtMatrixLayoutCreate(&layout, @intCast(Self.getCudaDatatype()), col, row, @intCast(col)),
             );
             errdefer _ = c.cublasLtMatrixLayoutDestroy(layout);
+
+            const cuda_data_type: u32 = @intCast(Self.getCudaDatatype());
+            try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
+                layout,
+                c.CUBLASLT_MATRIX_LAYOUT_TYPE,
+                &cuda_data_type,
+                @sizeOf(@TypeOf(cuda_data_type)),
+            ));
 
             if (batch_count != 0) {
                 try err.checkCublas(c.cublasLtMatrixLayoutSetAttribute(
@@ -219,6 +227,15 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 f16 => c.CUBLAS_COMPUTE_16F,
                 f32 => c.CUBLAS_COMPUTE_32F,
                 f64 => c.CUBLAS_COMPUTE_64F,
+                else => unreachable,
+            };
+        }
+
+        fn TypeToCudaDataType(comptime F: type) c.cudaDataType_t {
+            return switch (F) {
+                f16 => c.CUDA_R_16F,
+                f32 => c.CUDA_R_32F,
+                f64 => c.CUDA_R_64F,
                 else => unreachable,
             };
         }
@@ -255,21 +272,18 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                 matmul_desc,
                 c.CUBLASLT_MATMUL_DESC_TRANSA,
-                // row major -> already transposed
                 if (self_transpose) &op_no_t else &op_t,
                 @sizeOf(c.cublasOperation_t),
             ));
             try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                 matmul_desc,
                 c.CUBLASLT_MATMUL_DESC_TRANSB,
-                // row major -> already transposed
                 if (other_transpose) &op_no_t else &op_t,
                 @sizeOf(c.cublasOperation_t),
             ));
             try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                 matmul_desc,
                 c.CUBLASLT_MATMUL_DESC_TRANSC,
-                // row major -> already transposed
                 if (add_transpose) &op_no_t else &op_t,
                 @sizeOf(c.cublasOperation_t),
             ));
@@ -326,9 +340,6 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 return err.CublasError.INTERNAL_ERROR;
             }
 
-            // const alpha: if (CublasComputeType == f16) f16 else f32 = 1.0;
-            // const beta: if (CublasComputeType == f16) f16 else f32 = if (accumulate) 1.0 else 0.0;
-
             try err.checkCublas(c.cublasLtMatmul(
                 cuda_context.cublaslt_handle,
                 matmul_desc,
@@ -349,15 +360,74 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             ));
         }
 
-        // pub fn transpose(
-        //     self: *const Self,
-        //     cuda_context: *const CudaContext,
-        //     stream: *const Stream,
-        //     result: *Self,
-        // ) !void {
-        //     var matmul_desc: c.cublasLtMatmulDesc_t = null;
-        //     try err.checkCublas(c.cublasLtMatmulDescCreate(&matmul_desc, cublas_compute_type, c.CUDA_R_32F));
-        //     defer _ = c.cublasLtMatmulDescDestroy(matmul_desc);
-        // }
+        pub fn tranformTransposed(
+            self: *const Self,
+            self_transpose: bool,
+            other: anytype,
+            other_transpose: bool,
+            comptime CublasScaleType: type,
+            alpha: CublasScaleType,
+            beta: CublasScaleType,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+            out: anytype,
+        ) !void {
+            var transform_desc: c.cublasLtMatrixTransformDesc_t = null;
+            try err.checkCublas(c.cublasLtMatrixTransformDescCreate(
+                &transform_desc,
+                TypeToCudaDataType(CublasScaleType),
+            ));
+            defer _ = c.cublasLtMatrixTransformDescDestroy(transform_desc);
+
+            const op_no_t: c.cublasOperation_t = c.CUBLAS_OP_N;
+            const op_t: c.cublasOperation_t = c.CUBLAS_OP_T;
+            try err.checkCublas(c.cublasLtMatrixTransformDescSetAttribute(
+                transform_desc,
+                c.CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA,
+                // row major -> already transposed
+                if (self_transpose) &op_no_t else &op_t,
+                @sizeOf(c.cublasOperation_t),
+            ));
+            try err.checkCublas(c.cublasLtMatrixTransformDescSetAttribute(
+                transform_desc,
+                c.CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSB,
+                // row major -> already transposed
+                if (other_transpose) &op_no_t else &op_t,
+                @sizeOf(c.cublasOperation_t),
+            ));
+
+            const self_layout = try self.createCublasLtMatrixLayout();
+            defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
+
+            const other_layout = try other.createCublasLtMatrixLayout();
+            defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
+
+            const out_layout = try out.createCublasLtMatrixLayout();
+            defer _ = c.cublasLtMatrixLayoutDestroy(out_layout);
+
+            // already set
+            // const scale_type: c.cudaDataType_t = TypeToCudaDataType(CublasScaleType);
+            // try err.checkCublas(c.cublasLtMatrixTransformDescSetAttribute(
+            //     transform_desc,
+            //     c.CUBLASLT_MATRIX_TRANSFORM_DESC_SCALE_TYPE,
+            //     // row major -> already transposed
+            //     &scale_type,
+            //     @sizeOf(scale_type),
+            // ));
+
+            try err.checkCublas(c.cublasLtMatrixTransform(
+                cuda_context.cublaslt_handle,
+                transform_desc,
+                &alpha,
+                self.ptr,
+                self_layout,
+                &beta,
+                other.ptr,
+                other_layout,
+                out.ptr,
+                out_layout,
+                stream.stream,
+            ));
+        }
     };
 }

@@ -18,11 +18,11 @@ pub fn main() !void {
 
     const batch = 2;
 
-    const row1 = 2;
+    const row1 = 3;
     const col1 = 3;
 
     const row2 = 3;
-    const col2 = 4;
+    const col2 = 3;
 
     const dim = 3;
 
@@ -85,9 +85,9 @@ pub fn main() !void {
     try device_tensor1.writeFromHostAsync(host_tensor1.data, 0, &stream);
     try device_tensor2.writeFromHostAsync(host_tensor2.data, 0, &stream);
 
-    try device_tensor1.scale(-0.1, &stream);
+    // try device_tensor1.scale(-0.1, &stream);
 
-    //const Ep = tm.tensor.matmul_epilogue.Epilogue(void, void);
+    // const Ep = tm.tensor.matmul_epilogue.Epilogue(void, void);
     const Ep = tm.tensor.matmul_epilogue.Epilogue(
         @TypeOf(device_tensor_bias),
         @TypeOf(device_tensor_aux),
@@ -134,4 +134,30 @@ pub fn main() !void {
     std.debug.print("B: {d}", .{host_tensor2});
     std.debug.print("Res: {d}", .{host_tensor_res});
     std.debug.print("Gelu: {d}", .{host_tensor_gelu});
+
+    try device_tensor1.tranformTransposed(
+        false,
+        &device_tensor2,
+        false,
+        f32,
+        1.0,
+        1.0,
+        &cuda_context,
+        &stream,
+        &device_tensor_res,
+    );
+
+    try stream.sync();
+
+    try host_tensor_res.writeFromDevice(
+        device_tensor_res.ptr.?,
+        device_tensor_res.calcLen(),
+        0,
+        &stream,
+    );
+    try stream.sync();
+
+    std.debug.print("A: {d}", .{host_tensor1});
+    std.debug.print("B: {d}", .{host_tensor2});
+    std.debug.print("Res: {d}", .{host_tensor_res});
 }
