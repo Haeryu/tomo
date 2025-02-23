@@ -100,7 +100,7 @@ pub fn main() !void {
         false,
         &device_tensor_res,
         true,
-        f32,
+        tm.c.CUBLAS_COMPUTE_32F_FAST_16BF,
         1.0,
         0.0,
         Ep,

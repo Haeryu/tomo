@@ -218,14 +218,14 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             return layout;
         }
 
-        fn TypeToCublasComputeType(comptime F: type) c.cublasComputeType_t {
-            return switch (F) {
-                f16 => c.CUBLAS_COMPUTE_16F,
-                f32 => c.CUBLAS_COMPUTE_32F,
-                f64 => c.CUBLAS_COMPUTE_64F,
-                else => unreachable,
-            };
-        }
+        // fn TypeToCublasComputeType(comptime F: type) c.cublasComputeType_t {
+        //     return switch (F) {
+        //         f16 => c.CUBLAS_COMPUTE_16F,
+        //         f32 => c.CUBLAS_COMPUTE_32F,
+        //         f64 => c.CUBLAS_COMPUTE_64F,
+        //         else => unreachable,
+        //     };
+        // }
 
         fn TypeToCudaDataType(comptime F: type) c.cudaDataType_t {
             return switch (F) {
@@ -244,9 +244,9 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             other_transpose: bool,
             add_tensor: anytype,
             add_transpose: bool,
-            comptime CublasComputeType: type,
-            alpha: if (CublasComputeType == f16) f16 else f32,
-            beta: if (CublasComputeType == f16) f16 else f32,
+            comptime cublas_compute_type: c.cublasComputeType_t,
+            alpha: if (cublas_compute_type == c.CUBLAS_COMPUTE_16F) f16 else f32,
+            beta: if (cublas_compute_type == c.CUBLAS_COMPUTE_16F) f16 else f32,
             comptime EpilogueT: type,
             epilogue_config: EpilogueT.Config,
             //cublas_compute_type: c.cublasComputeType_t,
@@ -259,7 +259,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             var matmul_desc: c.cublasLtMatmulDesc_t = null;
             try err.checkCublas(c.cublasLtMatmulDescCreate(
                 &matmul_desc,
-                TypeToCublasComputeType(CublasComputeType),
+                cublas_compute_type,
                 c.CUDA_R_32F,
             ));
             defer _ = c.cublasLtMatmulDescDestroy(matmul_desc);
@@ -310,7 +310,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
 
             try EpilogueT.setEpilogue(matmul_desc, epilogue_config);
 
-            const scale_type: c.cudaDataType_t = if (CublasComputeType == f16) c.CUDA_R_16F else c.CUDA_R_32F;
+            const scale_type: c.cudaDataType_t = if (cublas_compute_type == c.CUBLAS_COMPUTE_16F) c.CUDA_R_16F else c.CUDA_R_32F;
             try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                 matmul_desc,
                 c.CUBLASLT_MATMUL_DESC_SCALE_TYPE,
