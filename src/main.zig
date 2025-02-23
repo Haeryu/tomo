@@ -104,9 +104,9 @@ pub fn main() !void {
         0.0,
         Ep,
         Ep.Config{
-            .activation = .none,
-            .aux_tensor = null,
-            .bias_tensor = null,
+            .activation = .gelu,
+            .aux_tensor = device_tensor_aux,
+            .bias_tensor = device_tensor_bias,
         },
         &stream,
         &cuda_context,

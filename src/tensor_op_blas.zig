@@ -104,73 +104,6 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        // pub fn matmulTransposed(
-        //     self: *const Self,
-        //     other: anytype,
-        //     cuda_context: *const CudaContext,
-        //     stream: *const Stream,
-        //     result: *Self,
-        // ) !void {
-        //     std.debug.assert(result.ptr != null); // initialized and synced
-
-        //     if (self.base.shape.len != 2 or other.base.shape.len != 2) {
-        //         return error.OperationNotSupported;
-        //     }
-
-        //     if (self.base.shape[1] != other.base.shape[0]) {
-        //         return error.SizeMismatch;
-        //     }
-
-        //     const m = self.base.shape[0];
-        //     const k = self.base.shape[1];
-        //     const n = other.base.shape[1];
-
-        //     const alpha: T = 1;
-        //     const beta: T = 0;
-
-        //     try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
-
-        //     switch (T) {
-        //         f32 => {
-        //             try err.checkCublas(c.cublasSgemm_64(
-        //                 cuda_context.cublas_handle,
-        //                 c.CUBLAS_OP_T,
-        //                 c.CUBLAS_OP_T,
-        //                 @intCast(n),
-        //                 @intCast(m),
-        //                 @intCast(k),
-        //                 &alpha,
-        //                 @ptrCast(self.ptr.?),
-        //                 @intCast(self.base.shape[1]),
-        //                 @ptrCast(other.ptr.?),
-        //                 @intCast(other.base.shape[1]),
-        //                 &beta,
-        //                 @ptrCast(result.ptr.?),
-        //                 @intCast(result.base.shape[1]),
-        //             ));
-        //         },
-        //         f64 => {
-        //             try err.checkCublas(c.cublasDgemm_64(
-        //                 cuda_context.cublas_handle,
-        //                 c.CUBLAS_OP_T,
-        //                 c.CUBLAS_OP_T,
-        //                 @intCast(n),
-        //                 @intCast(m),
-        //                 @intCast(k),
-        //                 &alpha,
-        //                 @ptrCast(other.ptr.?),
-        //                 @intCast(k),
-        //                 @ptrCast(self.ptr.?),
-        //                 @intCast(m),
-        //                 &beta,
-        //                 @ptrCast(result.ptr.?),
-        //                 @intCast(n),
-        //             ));
-        //         },
-        //         else => unreachable,
-        //     }
-        // }
-
         pub fn add(
             self: *const Self,
             other: *const Self,
@@ -245,61 +178,6 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 self,
             );
         }
-
-        // pub fn transpose(
-        //     self: *const Self,
-        //     cuda_context: *const CudaContext,
-        //     stream: *const Stream,
-        //     result: *Self,
-        // ) !void {
-        //     std.debug.assert(result.ptr != null); // initialized and synced
-        //     if (rank != 2) return error.OperationNotSupported;
-
-        //     const m = self.base.shape[0];
-        //     const n = self.base.shape[1];
-
-        //     try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
-
-        //     const alpha: T = 1;
-        //     const beta: T = 0;
-        //     switch (T) {
-        //         f32 => {
-        //             try err.checkCublas(c.cublasSgeam(
-        //                 cuda_context.cublas_handle,
-        //                 c.CUBLAS_OP_T,
-        //                 c.CUBLAS_OP_N,
-        //                 @intCast(m),
-        //                 @intCast(n),
-        //                 &alpha,
-        //                 @ptrCast(self.ptr.?),
-        //                 @intCast(n),
-        //                 &beta,
-        //                 @ptrCast(result.ptr.?),
-        //                 @intCast(m),
-        //                 @ptrCast(result.ptr.?),
-        //                 @intCast(m),
-        //             ));
-        //         },
-        //         f64 => {
-        //             try err.checkCublas(c.cublasDgeam(
-        //                 cuda_context.cublas_handle,
-        //                 c.CUBLAS_OP_T,
-        //                 c.CUBLAS_OP_N,
-        //                 @intCast(m),
-        //                 @intCast(n),
-        //                 &alpha,
-        //                 @ptrCast(self.ptr.?),
-        //                 @intCast(n),
-        //                 &beta,
-        //                 @ptrCast(result.ptr.?),
-        //                 @intCast(m),
-        //                 @ptrCast(result.ptr.?),
-        //                 @intCast(m),
-        //             ));
-        //         },
-        //         else => unreachable,
-        //     }
-        // }
 
         // TODO: make function to create and set cublaslt matrix layout to use it at cublasLtMatrixTransform
         // TODO: support many activation function => make class that control CUBLASLT_MATMUL_DESC_EPILOGUE_XXX
