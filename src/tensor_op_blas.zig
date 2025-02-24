@@ -10,119 +10,116 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
     return struct {
         const Self = GPUTensor(T, rank);
 
-        pub fn axpy(
-            self: *const Self,
-            alpha: T,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-            result: *Self,
-        ) !void {
-            std.debug.assert(result.ptr != null); // initialized and synced
+        // pub fn axpy(
+        //     self: *const Self,
+        //     alpha: T,
+        //     cuda_context: *const CudaContext,
+        //     stream: *const Stream,
+        //     result: *Self,
+        // ) !void {
+        //     std.debug.assert(result.ptr != null); // initialized and synced
 
-            if (self.base.countElem() != result.base.countElem()) {
-                return error.SizeMismatch;
-            }
+        //     if (self.base.countElem() != result.base.countElem()) {
+        //         return error.SizeMismatch;
+        //     }
 
-            const n = self.base.countElem();
+        //     const n = self.base.countElem();
 
-            const incx: i64 = 1;
-            const incy: i64 = 1;
+        //     const incx: i64 = 1;
+        //     const incy: i64 = 1;
 
-            try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
+        //     try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
 
-            switch (T) {
-                f32 => {
-                    try err.checkCublas(c.cublasSaxpy_64(
-                        cuda_context.cublas_handle,
-                        @intCast(n),
-                        &alpha,
-                        @ptrCast(self.ptr.?),
-                        incx,
-                        @ptrCast(result.ptr.?),
-                        incy,
-                    ));
-                },
-                f64 => {
-                    try err.checkCublas(c.cublasDaxpy_64(
-                        cuda_context.cublas_handle,
-                        @intCast(n),
-                        &alpha,
-                        @ptrCast(self.ptr.?),
-                        incx,
-                        @ptrCast(result.ptr.?),
-                        incy,
-                    ));
-                },
-                else => unreachable,
-            }
-        }
+        //     switch (T) {
+        //         f32 => {
+        //             try err.checkCublas(c.cublasSaxpy_64(
+        //                 cuda_context.cublas_handle,
+        //                 @intCast(n),
+        //                 &alpha,
+        //                 @ptrCast(self.ptr.?),
+        //                 incx,
+        //                 @ptrCast(result.ptr.?),
+        //                 incy,
+        //             ));
+        //         },
+        //         f64 => {
+        //             try err.checkCublas(c.cublasDaxpy_64(
+        //                 cuda_context.cublas_handle,
+        //                 @intCast(n),
+        //                 &alpha,
+        //                 @ptrCast(self.ptr.?),
+        //                 incx,
+        //                 @ptrCast(result.ptr.?),
+        //                 incy,
+        //             ));
+        //         },
+        //         else => unreachable,
+        //     }
+        // }
 
-        pub fn dgmm(
-            self: *const Self,
-            side: c.cublasSideMode_t,
-            x: *const Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-            result: *Self,
-        ) !void {
-            std.debug.assert(result.ptr != null);
-            const n = self.base.countElem();
+        // pub fn dgmm(
+        //     self: *const Self,
+        //     side: c.cublasSideMode_t,
+        //     x: *const Self,
+        //     cuda_context: *const CudaContext,
+        //     stream: *const Stream,
+        //     result: *Self,
+        // ) !void {
+        //     std.debug.assert(result.ptr != null);
+        //     const n = self.base.countElem();
 
-            try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
+        //     try err.checkCublas(c.cublasSetStream(cuda_context.cublas_handle, stream.stream));
 
-            switch (T) {
-                f32 => {
-                    try err.checkCublas(c.cublasSdgmm_64(
-                        cuda_context.cublas_handle,
-                        side,
-                        1,
-                        @intCast(n),
-                        @ptrCast(result.ptr.?),
-                        1,
-                        @ptrCast(x.ptr.?),
-                        1,
-                        @ptrCast(result.ptr.?),
-                        1,
-                    ));
-                },
-                f64 => {
-                    try err.checkCublas(c.cublasDdgmm_64(
-                        cuda_context.cublas_handle,
-                        side,
-                        1,
-                        @intCast(n),
-                        @ptrCast(result.ptr.?),
-                        1,
-                        @ptrCast(x.ptr.?),
-                        1,
-                        @ptrCast(result.ptr.?),
-                        1,
-                    ));
-                },
+        //     switch (T) {
+        //         f32 => {
+        //             try err.checkCublas(c.cublasSdgmm_64(
+        //                 cuda_context.cublas_handle,
+        //                 side,
+        //                 1,
+        //                 @intCast(n),
+        //                 @ptrCast(result.ptr.?),
+        //                 1,
+        //                 @ptrCast(x.ptr.?),
+        //                 1,
+        //                 @ptrCast(result.ptr.?),
+        //                 1,
+        //             ));
+        //         },
+        //         f64 => {
+        //             try err.checkCublas(c.cublasDdgmm_64(
+        //                 cuda_context.cublas_handle,
+        //                 side,
+        //                 1,
+        //                 @intCast(n),
+        //                 @ptrCast(result.ptr.?),
+        //                 1,
+        //                 @ptrCast(x.ptr.?),
+        //                 1,
+        //                 @ptrCast(result.ptr.?),
+        //                 1,
+        //             ));
+        //         },
 
-                else => unreachable,
-            }
-        }
+        //         else => unreachable,
+        //     }
+        // }
 
         pub fn add(
             self: *const Self,
             other: *const Self,
             cuda_context: *const CudaContext,
             stream: *const Stream,
-            result: *Self,
-        ) !void {
-            std.debug.assert(result.ptr != null); // initialized and synced
-            try result.writeAsync(other.ptr.?, other.calcLen(), 0, stream);
-            try self.axpy(1, cuda_context.cublas_handle, stream, result);
-        }
-
-        pub fn addAssign(
-            self: *Self,
-            other: *const Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-        ) !void {
-            try other.axpy(1, cuda_context.cublas_handle, stream, self);
+        ) !Self {
+            return try self.tranform(
+                false,
+                other,
+                false,
+                T,
+                if (T == Bf16) Bf16.fromF32(1.0) else 1.0,
+                if (T == Bf16) Bf16.fromF32(1.0) else 1.0,
+                cuda_context,
+                stream,
+            );
         }
 
         pub fn sub(
@@ -130,52 +127,16 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             other: *const Self,
             cuda_context: *const CudaContext,
             stream: *const Stream,
-            result: *Self,
-        ) !void {
-            std.debug.assert(result.ptr != null); // initialized and synced\
-            try result.writeAsync(other.ptr.?, other.calcLen(), 0, stream);
-            try result.axpy(-1.0, cuda_context.cublas_handle, stream, self);
-        }
-
-        pub fn subAssign(
-            self: *Self,
-            other: *const Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-        ) !void {
-            try other.axpy(-1.0, cuda_context.cublas_handle, stream, self);
-        }
-
-        pub fn mul(
-            self: *const Self,
-            other: *const Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-            result: *Self,
-        ) !void {
-            std.debug.assert(result.ptr != null); // initialized and synced
-            try result.writeAsync(other.ptr.?, other.calcLen(), 0, stream);
-            try self.dgmm(
-                c.CUBLAS_SIDE_RIGHT,
+        ) !Self {
+            return try self.tranform(
+                false,
                 other,
+                false,
+                T,
+                if (T == Bf16) Bf16.fromF32(1.0) else 1.0,
+                if (T == Bf16) Bf16.fromF32(-1.0) else -1.0,
                 cuda_context,
                 stream,
-                result,
-            );
-        }
-
-        pub fn mulAssign(
-            self: *Self,
-            other: *const Self,
-            cuda_context: *const CudaContext,
-            stream: *const Stream,
-        ) !void {
-            try other.dgmm(
-                c.CUBLAS_SIDE_RIGHT,
-                self,
-                cuda_context,
-                stream,
-                self,
             );
         }
 
@@ -252,9 +213,21 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             //cublas_compute_type: c.cublasComputeType_t,
             stream: *const Stream,
             cuda_context: *const CudaContext,
-            out: anytype,
-        ) !void {
+            comptime OutType: type,
+        ) !GPUTensor(OutType, rank) {
+            if (@TypeOf(other_tensor) == @TypeOf(null)) {
+                if (T == Bf16) {
+                    std.debug.assert(beta.val.x == Bf16.fromF32(0.0).val.x);
+                } else {
+                    std.debug.assert(beta == 0.0);
+                }
+            }
             comptime std.debug.assert(rank == 2 or rank == 3);
+
+            var shape = self.base.shape;
+            shape[shape.len - 1] = other_tensor.base.shape[other_tensor.base.shape.len - 1];
+            var out_tensor = try GPUTensor(OutType, rank).initAsync(shape, stream);
+            errdefer out_tensor.deinitAsync(stream);
 
             var matmul_desc: c.cublasLtMatmulDesc_t = null;
             try err.checkCublas(c.cublasLtMatmulDescCreate(
@@ -278,12 +251,15 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 if (other_transpose) &op_no_t else &op_t,
                 @sizeOf(c.cublasOperation_t),
             ));
-            try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
-                matmul_desc,
-                c.CUBLASLT_MATMUL_DESC_TRANSC,
-                if (add_transpose) &op_no_t else &op_t,
-                @sizeOf(c.cublasOperation_t),
-            ));
+
+            if (@TypeOf(add_tensor) != @TypeOf(null)) {
+                try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
+                    matmul_desc,
+                    c.CUBLASLT_MATMUL_DESC_TRANSC,
+                    if (add_transpose) &op_no_t else &op_t,
+                    @sizeOf(c.cublasOperation_t),
+                ));
+            }
 
             const self_layout = try self.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
@@ -291,11 +267,15 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             const other_layout = try other_tensor.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
 
-            const add_layout = try add_tensor.createCublasLtMatrixLayout();
-            defer _ = c.cublasLtMatrixLayoutDestroy(add_layout);
-
-            const out_layout = try out.createCublasLtMatrixLayout();
+            const out_layout = try out_tensor.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(out_layout);
+
+            const add_layout = if (@TypeOf(add_tensor) != @TypeOf(null)) try add_tensor.createCublasLtMatrixLayout() else out_layout;
+            defer {
+                if (@TypeOf(add_tensor) != @TypeOf(null)) {
+                    _ = c.cublasLtMatrixLayoutDestroy(add_layout);
+                }
+            }
 
             var preference: c.cublasLtMatmulPreference_t = null;
             try err.checkCublas(c.cublasLtMatmulPreferenceCreate(&preference));
@@ -346,15 +326,54 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 other_tensor.ptr,
                 other_layout,
                 &beta,
-                add_tensor.ptr,
+                if (@TypeOf(add_tensor) != @TypeOf(null)) add_tensor.ptr else out_tensor.ptr,
                 add_layout,
-                out.ptr,
+                out_tensor.ptr,
                 out_layout,
                 &heuristic.algo,
                 cuda_context.cublaslt_workspace,
                 cuda_context.cublaslt_workspace_size,
                 stream.stream,
             ));
+
+            return out_tensor;
+        }
+
+        pub fn matmul(
+            self: *const Self,
+            self_transpose: bool,
+            other_tensor: anytype,
+            other_transpose: bool,
+            add_tensor: anytype,
+            add_transpose: bool,
+            comptime cublas_compute_type: c.cublasComputeType_t,
+            alpha: if (cublas_compute_type == c.CUBLAS_COMPUTE_16F) f16 else f32,
+            beta: if (cublas_compute_type == c.CUBLAS_COMPUTE_16F) f16 else f32,
+            comptime EpilogueT: type,
+            epilogue_config: EpilogueT.Config,
+            //cublas_compute_type: c.cublasComputeType_t,
+            stream: *const Stream,
+            cuda_context: *const CudaContext,
+            comptime OutType: type,
+        ) !GPUTensor(OutType, rank) {
+            var matmul_res = try self.matmulTransposed(
+                self_transpose,
+                other_tensor,
+                other_transpose,
+                add_tensor,
+                add_transpose,
+                cublas_compute_type,
+                alpha,
+                beta,
+                EpilogueT,
+                epilogue_config,
+                stream,
+                cuda_context,
+                OutType,
+            );
+            defer matmul_res.deinitAsync(stream);
+
+            return try matmul_res.transpose(cuda_context, stream);
         }
 
         pub fn tranformTransposed(
@@ -367,8 +386,23 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             beta: CublasScaleType,
             cuda_context: *const CudaContext,
             stream: *const Stream,
-            out: anytype,
-        ) !void {
+        ) !Self {
+            if (@TypeOf(other_tensor) == @TypeOf(null)) {
+                if (T == Bf16) {
+                    std.debug.assert(beta.val.x == Bf16.fromF32(0.0).val.x);
+                } else {
+                    std.debug.assert(beta == 0.0);
+                }
+            }
+
+            var shape = self.base.shape;
+            if (!self_transpose) {
+                std.mem.swap(usize, &shape[shape.len - 1], &shape[shape.len - 2]);
+            }
+
+            var out_tensor = try Self.initAsync(shape, stream);
+            errdefer out_tensor.deinitAsync(stream);
+
             var transform_desc: c.cublasLtMatrixTransformDesc_t = null;
             try err.checkCublas(c.cublasLtMatrixTransformDescCreate(
                 &transform_desc,
@@ -385,21 +419,28 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 if (self_transpose) &op_no_t else &op_t,
                 @sizeOf(c.cublasOperation_t),
             ));
-            try err.checkCublas(c.cublasLtMatrixTransformDescSetAttribute(
-                transform_desc,
-                c.CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSB,
-                // row major -> already transposed
-                if (other_transpose) &op_no_t else &op_t,
-                @sizeOf(c.cublasOperation_t),
-            ));
+
+            if (@TypeOf(other_tensor) != @TypeOf(null)) {
+                try err.checkCublas(c.cublasLtMatrixTransformDescSetAttribute(
+                    transform_desc,
+                    c.CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSB,
+                    // row major -> already transposed
+                    if (other_transpose) &op_no_t else &op_t,
+                    @sizeOf(c.cublasOperation_t),
+                ));
+            }
 
             const self_layout = try self.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(self_layout);
 
-            const other_layout = try other_tensor.createCublasLtMatrixLayout();
-            defer _ = c.cublasLtMatrixLayoutDestroy(other_layout);
+            const other_layout = if (@TypeOf(other_tensor) != @TypeOf(null)) try other_tensor.createCublasLtMatrixLayout() else null;
+            defer {
+                if (@TypeOf(other_tensor) != @TypeOf(null)) {
+                    _ = c.cublasLtMatrixLayoutDestroy(other_layout);
+                }
+            }
 
-            const out_layout = try out.createCublasLtMatrixLayout();
+            const out_layout = try out_tensor.createCublasLtMatrixLayout();
             defer _ = c.cublasLtMatrixLayoutDestroy(out_layout);
 
             // already set
@@ -419,12 +460,57 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 self.ptr,
                 self_layout,
                 &beta,
-                other_tensor.ptr,
-                other_layout,
-                out.ptr,
+                if (@TypeOf(other_tensor) != @TypeOf(null)) other_tensor.ptr else null,
+                if (@TypeOf(other_tensor) != @TypeOf(null)) other_layout else null,
+                out_tensor.ptr,
                 out_layout,
                 stream.stream,
             ));
+
+            return out_tensor;
+        }
+
+        pub fn tranform(
+            self: *const Self,
+            self_transpose: bool,
+            other_tensor: anytype,
+            other_transpose: bool,
+            comptime CublasScaleType: type,
+            alpha: CublasScaleType,
+            beta: CublasScaleType,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !Self {
+            var transform_t = try self.tranformTransposed(
+                self_transpose,
+                other_tensor,
+                other_transpose,
+                CublasScaleType,
+                alpha,
+                beta,
+                cuda_context,
+                stream,
+            );
+            defer transform_t.deinitAsync(stream);
+
+            return try transform_t.transpose(cuda_context, stream);
+        }
+
+        pub fn transpose(
+            self: *Self,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !Self {
+            return try self.tranformTransposed(
+                false,
+                null,
+                false,
+                T,
+                if (T == Bf16) Bf16.fromF32(1.0) else 1.0,
+                if (T == Bf16) Bf16.fromF32(0.0) else 0.0,
+                cuda_context,
+                stream,
+            );
         }
     };
 }

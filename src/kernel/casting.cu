@@ -1,6 +1,6 @@
 #define TOMO_OPS_EXPORTS
 #include "tomo_dll.h"
-#include "elemwise.h"
+#include "map.h"
 #include <algorithm>
 
 #include <thrust/reduce.h>

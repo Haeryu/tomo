@@ -10,7 +10,11 @@ pub fn TensorOpCast(comptime T: type, comptime rank: comptime_int) type {
     return struct {
         const Self = GPUTensor(T, rank);
 
-        pub fn cast(self: *const Self, comptime U: type, stream: *const Stream, res: GPUTensor(U, rank)) !void {
+        pub fn cast(self: *const Self, comptime U: type, stream: *const Stream) !GPUTensor(U, rank) {
+            var res = GPUTensor(U, rank){};
+            try res.initAsync(self.base.shape, stream);
+            errdefer res.deinitAsync(stream);
+
             switch (T) {
                 BF16 => {
                     switch (U) {
@@ -70,6 +74,8 @@ pub fn TensorOpCast(comptime T: type, comptime rank: comptime_int) type {
                 },
                 else => unreachable,
             }
+
+            return res;
         }
     };
 }

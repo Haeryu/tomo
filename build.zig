@@ -7,14 +7,14 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib_mod = b.createModule(.{
+    const lib_mod = b.addModule("tomo", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
 
-    lib_mod.addIncludePath(.{ .cwd_relative = "src/kernel/" });
+    lib_mod.addIncludePath(.{ .cwd_relative = "./src/kernel/" });
     lib_mod.addIncludePath(.{ .cwd_relative = cuda_path ++ "include" });
     //  lib_mod.addAfterIncludePath(.{ .cwd_relative = cuda_path ++ "include" });
     lib_mod.addIncludePath(.{ .cwd_relative = cudnn_path ++ "include\\12.8" });
@@ -22,8 +22,8 @@ pub fn build(b: *std.Build) void {
     lib_mod.addLibraryPath(.{ .cwd_relative = cuda_path ++ "bin" });
     lib_mod.addLibraryPath(.{ .cwd_relative = cudnn_path ++ "bin\\12.8" });
 
-    lib_mod.addIncludePath(.{ .cwd_relative = "./src/kernel/" });
-    lib_mod.addLibraryPath(.{ .cwd_relative = "./src/kernel/out/" });
+    lib_mod.addIncludePath(b.path("src/kernel/"));
+    lib_mod.addLibraryPath(b.path("src/kernel/out/"));
 
     lib_mod.linkSystemLibrary("cudart64_12", .{});
     lib_mod.linkSystemLibrary("cublas64_12", .{});
@@ -35,7 +35,7 @@ pub fn build(b: *std.Build) void {
     lib_mod.linkSystemLibrary("cusolverMg64_11", .{});
     lib_mod.linkSystemLibrary("cusparse64_12", .{});
     lib_mod.linkSystemLibrary("tomo_kernels", .{});
-    lib_mod.addObjectFile(.{ .cwd_relative = "./src/kernel/out/tomo_kernels.lib" });
+    lib_mod.addObjectFile(b.path("src/kernel/out/tomo_kernels.lib"));
 
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),

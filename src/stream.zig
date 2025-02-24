@@ -15,10 +15,9 @@ pub const Stream = struct {
     }
 
     pub fn destroy(self: *Stream) void {
-        if (self.stream) |s| {
-            _ = c.cudaStreamDestroy(s);
-            self.stream = null;
-        }
+        self.sync() catch {};
+        _ = c.cudaStreamDestroy(self.stream);
+        self.stream = null;
     }
 
     pub fn sync(self: *const Stream) !void {

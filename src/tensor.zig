@@ -260,6 +260,15 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
                 try writer.print("]\n", .{});
             }
         }
+
+        pub fn toDevice(self: *const Self, stream: *const Stream) !GPUTensor(T, rank) {
+            var out = try GPUTensor(T, rank).initAsync(self.base.shape, stream);
+            errdefer out.deinitAsync(stream);
+
+            try out.writeFromHostAsync(self.data, 0, stream);
+
+            return out;
+        }
     };
 }
 
@@ -290,10 +299,14 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             };
         }
 
-        pub fn initAsync(self: *Self, shape: [rank]usize, stream: *const Stream) !void {
-            std.debug.assert(self.ptr == null);
-            self.base = Base.init(shape);
-            try err.checkCuda(c.cudaMallocAsync(@ptrCast(&self.ptr), self.base.countElem() * @sizeOf(T), stream.stream));
+        pub fn initAsync(shape: [rank]usize, stream: *const Stream) !Self {
+            const base = Base.init(shape);
+            var ptr: ?[*]T = null;
+            try err.checkCuda(c.cudaMallocAsync(@ptrCast(&ptr), base.countElem() * @sizeOf(T), stream.stream));
+            return .{
+                .ptr = ptr,
+                .base = base,
+            };
         }
 
         pub fn deinitSync(self: *Self) void {
@@ -330,10 +343,10 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             ));
         }
 
-        pub fn cloneAsync(self: *const Self, cloned: *Self, stream: *const Stream) !void {
-            std.debug.assert(cloned.ptr == null);
+        pub fn cloneAsync(self: *const Self, stream: *const Stream) !Self {
+            //std.debug.assert(cloned.ptr == null);
 
-            try cloned.initAsync(self.base.shape, stream);
+            var cloned = try Self.initAsync(self.base.shape, stream);
             errdefer cloned.deinitAsync(stream);
 
             try cloned.writeAsync(self.ptr.?, self.calcLen(), 0, stream);
@@ -410,6 +423,15 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
                 u64 => return c.CUDA_R_64U,
                 else => unreachable,
             }
+        }
+
+        pub fn toHost(self: *const Self, allocator: std.mem.Allocator, stream: *const Stream) !CPUTensor(T, rank) {
+            var host_tensor = try CPUTensor(T, rank).init(allocator, self.base.shape);
+            errdefer host_tensor.deinit(allocator);
+
+            try host_tensor.writeFromDevice(self.ptr.?, self.calcLen(), 0, stream);
+
+            return host_tensor;
         }
 
         pub usingnamespace TensorOp(T, rank);
