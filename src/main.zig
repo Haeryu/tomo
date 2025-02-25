@@ -52,7 +52,9 @@ pub fn main() !void {
     );
     defer dot.deinitAsync(&stream);
 
-    var host = try dot.toHost(tm.allocator.cuda_pinned_allocator, &stream);
+    var e_dot = dot.getErasedPtr();
+
+    var host = try e_dot.asOriginal().toHost(tm.allocator.cuda_pinned_allocator, &stream);
     defer host.deinit(tm.allocator.cuda_pinned_allocator);
 
     try stream.sync();

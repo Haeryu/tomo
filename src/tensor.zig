@@ -314,7 +314,7 @@ pub fn GPUTensor(comptime T: type) type {
         ptr: ?[*]T = null,
         base: Base = undefined,
 
-        const max_rank: comptime_int = 4;
+        pub const max_rank: comptime_int = 4;
         const Self = @This();
         const Base = TensorBase(max_rank);
         pub const Elem = T;
@@ -482,7 +482,45 @@ pub fn GPUTensor(comptime T: type) type {
             return host_tensor;
         }
 
+        pub fn getErasedPtr(self: *Self) GPUTensorErasedPtr {
+            return GPUTensorErasedPtr.init(self);
+        }
+
         pub usingnamespace TensorOp(T);
         pub usingnamespace TensorFillRandom(T);
     };
 }
+
+pub const FloatType = enum {
+    bf16,
+    f16,
+    f32,
+    f64,
+};
+
+pub const GPUTensorErasedPtr = struct {
+    comptime float_type: FloatType = .f32,
+    ptr: *anyopaque,
+
+    pub fn init(p_gpu_tensor: anytype) GPUTensorErasedPtr {
+        return .{
+            .ptr = p_gpu_tensor,
+            .float_type = switch (@typeInfo(@TypeOf(p_gpu_tensor)).pointer.child.Elem) {
+                BF16 => .bf16,
+                f16 => .f16,
+                f32 => .f32,
+                f64 => .f64,
+                else => unreachable,
+            },
+        };
+    }
+
+    pub fn asOriginal(self: *GPUTensorErasedPtr) *GPUTensor(switch (self.float_type) {
+        .bf16 => BF16,
+        .f16 => f16,
+        .f32 => f32,
+        .f64 => f64,
+    }) {
+        return @ptrCast(@alignCast(self.ptr));
+    }
+};
