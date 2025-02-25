@@ -12,13 +12,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .link_libc = true,
+        .link_libcpp = true,
     });
 
-    lib_mod.addIncludePath(.{ .cwd_relative = "./src/kernel/" });
     lib_mod.addIncludePath(.{ .cwd_relative = cuda_path ++ "include" });
-    //  lib_mod.addAfterIncludePath(.{ .cwd_relative = cuda_path ++ "include" });
     lib_mod.addIncludePath(.{ .cwd_relative = cudnn_path ++ "include\\12.8" });
-    // lib_mod.addAfterIncludePath(.{ .cwd_relative = cudnn_path ++ "include\\12.8" });
     lib_mod.addLibraryPath(.{ .cwd_relative = cuda_path ++ "bin" });
     lib_mod.addLibraryPath(.{ .cwd_relative = cudnn_path ++ "bin\\12.8" });
 

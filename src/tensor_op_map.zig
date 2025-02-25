@@ -7,9 +7,9 @@ const GPUTensor = @import("tensor.zig").GPUTensor;
 const TensorOpReduction = @import("tensor_op_reduction.zig").TensorOpReduction;
 const Bf16 = @import("bf16.zig").BF16;
 
-pub fn TensorOpMap(comptime T: type, comptime rank: comptime_int) type {
+pub fn TensorOpMap(comptime T: type) type {
     return struct {
-        const Self = GPUTensor(T, rank);
+        const Self = GPUTensor(T);
 
         pub fn sin(self: *Self, stream: *const Stream) !void {
             switch (T) {
@@ -437,27 +437,27 @@ pub fn TensorOpMap(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn scale(
-            self: *Self,
-            factor: T,
-            stream: *const Stream,
-        ) !void {
-            switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoScaleB(@ptrCast(self.ptr), self.calcLen(), @bitCast(factor), stream.stream));
-                },
-                f16 => {
-                    try err.checkCuda(c.tomoScaleH(@ptrCast(self.ptr), self.calcLen(), @bitCast(factor), stream.stream));
-                },
-                f32 => {
-                    try err.checkCuda(c.tomoScaleF(self.ptr, self.calcLen(), factor, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoScaleD(self.ptr, self.calcLen(), factor, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
+        // pub fn scale(
+        //     self: *Self,
+        //     factor: T,
+        //     stream: *const Stream,
+        // ) !void {
+        //     switch (T) {
+        //         Bf16 => {
+        //             try err.checkCuda(c.tomoScaleB(@ptrCast(self.ptr), self.calcLen(), @bitCast(factor), stream.stream));
+        //         },
+        //         f16 => {
+        //             try err.checkCuda(c.tomoScaleH(@ptrCast(self.ptr), self.calcLen(), @bitCast(factor), stream.stream));
+        //         },
+        //         f32 => {
+        //             try err.checkCuda(c.tomoScaleF(self.ptr, self.calcLen(), factor, stream.stream));
+        //         },
+        //         f64 => {
+        //             try err.checkCuda(c.tomoScaleD(self.ptr, self.calcLen(), factor, stream.stream));
+        //         },
+        //         else => unreachable,
+        //     }
+        // }
 
         pub fn powf(
             self: *Self,

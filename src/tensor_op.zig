@@ -11,15 +11,15 @@ const TensorOpCast = @import("tensor_op_cast.zig").TensorOpCast;
 const TensorOpBlas = @import("tensor_op_blas.zig").TensorOpBlas;
 const TensorOpElemwise = @import("tensor_op_elemwise.zig").TensorOpElemwise;
 
-pub fn TensorOp(comptime T: type, comptime rank: comptime_int) type {
+pub fn TensorOp(comptime T: type) type {
     return struct {
-        const Self = GPUTensor(T, rank);
+        const Self = GPUTensor(T);
 
-        pub usingnamespace TensorOpMap(T, rank);
-        pub usingnamespace TensorOpReduction(T, rank);
-        pub usingnamespace TensorAlgorithm(T, rank);
-        pub usingnamespace TensorOpCast(T, rank);
-        pub usingnamespace TensorOpBlas(T, rank);
-        pub usingnamespace TensorOpElemwise(T, rank);
+        pub usingnamespace TensorOpMap(T);
+        pub usingnamespace TensorOpReduction(T);
+        pub usingnamespace TensorAlgorithm(T);
+        pub usingnamespace TensorOpCast(T);
+        pub usingnamespace TensorOpBlas(T);
+        pub usingnamespace TensorOpElemwise(T);
     };
 }

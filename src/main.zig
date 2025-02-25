@@ -12,7 +12,7 @@ pub fn main() !void {
     defer cuda_context.deinit();
 
     // const F = tm.BF16;
-    const F = f16;
+    const F = f32;
 
     const batch = 2;
 
@@ -22,14 +22,12 @@ pub fn main() !void {
     const row2 = 4;
     const col2 = 3;
 
-    const dim = 3;
-
-    var device_tensor1 = try tm.tensor.GPUTensor(F, dim).initAsync(.{ batch, row1, col1 }, &stream);
+    var device_tensor1 = try tm.tensor.GPUTensor(F).initAsync(&.{ batch, row1, col1 }, &stream);
     defer device_tensor1.deinitAsync(&stream);
 
     try device_tensor1.fill(1.0, &stream);
 
-    var device_tensor2 = try tm.tensor.GPUTensor(F, dim).initAsync(.{ batch, row2, col2 }, &stream);
+    var device_tensor2 = try tm.tensor.GPUTensor(F).initAsync(&.{ batch, row2, col2 }, &stream);
     defer device_tensor2.deinitAsync(&stream);
     try device_tensor2.fill(2.0, &stream);
 

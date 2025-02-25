@@ -6,9 +6,9 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const Bf16 = @import("bf16.zig").BF16;
 
-pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
+pub fn TensorOpBlas(comptime T: type) type {
     return struct {
-        const Self = GPUTensor(T, rank);
+        const Self = GPUTensor(T);
 
         // pub fn axpy(
         //     self: *const Self,
@@ -140,10 +140,28 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             );
         }
 
+        pub fn scale(
+            self: *const Self,
+            factor: T,
+            cuda_context: *const CudaContext,
+            stream: *const Stream,
+        ) !Self {
+            return try self.tranform(
+                false,
+                null,
+                false,
+                T,
+                factor,
+                if (T == Bf16) Bf16.fromF32(0.0) else 0.0,
+                cuda_context,
+                stream,
+            );
+        }
+
         pub fn createCublasLtMatrixLayout(self: *const Self) !c.cublasLtMatrixLayout_t {
-            const batch_count: c_int = if (rank == 2) 0 else @intCast(self.base.shape[0]);
-            const row: u64 = self.base.shape[self.base.shape.len - 2];
-            const col: u64 = self.base.shape[self.base.shape.len - 1];
+            const batch_count: c_int = @intCast(self.base.getBatch());
+            const row: u64 = self.base.getRow();
+            const col: u64 = self.base.getCol();
             const stride: u64 = row * col;
 
             var layout: c.cublasLtMatrixLayout_t = null;
@@ -214,7 +232,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
             cuda_context: *const CudaContext,
             comptime OutType: type,
-        ) !GPUTensor(OutType, rank) {
+        ) !GPUTensor(OutType) {
             if (@TypeOf(other_tensor) == @TypeOf(null)) {
                 if (T == Bf16) {
                     std.debug.assert(beta.val.x == Bf16.fromF32(0.0).val.x);
@@ -222,11 +240,15 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                     std.debug.assert(beta == 0.0);
                 }
             }
-            comptime std.debug.assert(rank == 2 or rank == 3);
 
-            var shape = self.base.shape;
-            shape[shape.len - 1] = other_tensor.base.shape[other_tensor.base.shape.len - 1];
-            var out_tensor = try GPUTensor(OutType, rank).initAsync(shape, stream);
+            var out_tensor = try GPUTensor(OutType).initAsync(if (self.base.rank == 3) &.{
+                self.base.getBatch(),
+                self.base.getRow(),
+                other_tensor.base.getCol(),
+            } else &.{
+                self.base.getRow(),
+                other_tensor.base.getCol(),
+            }, stream);
             errdefer out_tensor.deinitAsync(stream);
 
             var matmul_desc: c.cublasLtMatmulDesc_t = null;
@@ -355,7 +377,7 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
             stream: *const Stream,
             cuda_context: *const CudaContext,
             comptime OutType: type,
-        ) !GPUTensor(OutType, rank) {
+        ) !GPUTensor(OutType) {
             var matmul_res = try self.matmulTransposed(
                 self_transpose,
                 other_tensor,
@@ -395,12 +417,14 @@ pub fn TensorOpBlas(comptime T: type, comptime rank: comptime_int) type {
                 }
             }
 
-            var shape = self.base.shape;
-            if (!self_transpose) {
-                std.mem.swap(usize, &shape[shape.len - 1], &shape[shape.len - 2]);
-            }
-
-            var out_tensor = try Self.initAsync(shape, stream);
+            var out_tensor = try Self.initAsync(if (self.base.rank == 3) &.{
+                self.base.getBatch(),
+                self.base.getRow(),
+                self.base.getCol(),
+            } else &.{
+                self.base.getRow(),
+                self.base.getCol(),
+            }, stream);
             errdefer out_tensor.deinitAsync(stream);
 
             var transform_desc: c.cublasLtMatrixTransformDesc_t = null;

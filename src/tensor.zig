@@ -9,16 +9,21 @@ const BF16 = @import("bf16.zig").BF16;
 
 pub const matmul_epilogue = @import("tensor_op_matmul_epilogue.zig");
 
-pub fn TensorBase(comptime rank: comptime_int) type {
+pub fn TensorBase(comptime max_rank: comptime_int) type {
     return struct {
-        shape: [rank]usize,
-        strides: [rank]usize,
+        shape: [max_rank]usize,
+        strides: [max_rank]usize,
         is_contiguous: bool,
+        rank: usize,
+
+        comptime max_rank: comptime_int = max_rank,
 
         const Self = @This();
 
-        pub fn init(shape: [rank]usize) Self {
-            var strides: [rank]usize = .{0} ** rank;
+        pub fn init(shape_slice: []const usize) Self {
+            const rank = shape_slice.len;
+            var strides: [max_rank]usize = .{0} ** max_rank;
+            var shape: [max_rank]usize = .{0} ** max_rank;
 
             // Compute strides based on memory format
             strides[rank - 1] = 1;
@@ -27,10 +32,15 @@ pub fn TensorBase(comptime rank: comptime_int) type {
                 strides[i - 1] = strides[i] * shape[i];
             }
 
+            for (shape[0..rank], shape_slice) |*s1, s2| {
+                s1.* = s2;
+            }
+
             return .{
                 .shape = shape,
                 .strides = strides,
                 .is_contiguous = true,
+                .rank = rank,
             };
         }
 
@@ -39,7 +49,7 @@ pub fn TensorBase(comptime rank: comptime_int) type {
             // return @reduce(.Mul, vec);
 
             var total: usize = 1;
-            for (self.shape) |dim| {
+            for (self.getShapeConst()) |dim| {
                 total *= dim;
             }
             return total;
@@ -49,7 +59,7 @@ pub fn TensorBase(comptime rank: comptime_int) type {
             // e.g. for a 2D weight matrix [fan_out, fan_in], or
             // for convolution [out_channels, in_channels * kernel_h * kernel_w], etc.
             // This is up to you how you want to interpret 'shape'.
-            if (self.shape.len == 2) {
+            if (self.rank == 2) {
                 return .{ self.shape[1], self.shape[0] }; // fan_in, fan_out
             } else {
                 // for a 4D conv: [out_channels, in_channels, kernel_h, kernel_w]
@@ -58,22 +68,46 @@ pub fn TensorBase(comptime rank: comptime_int) type {
                 return .{ fan_in, fan_out };
             }
         }
+
+        pub fn getShapeConst(self: *const Self) []const usize {
+            return self.shape[0..self.rank];
+        }
+
+        pub fn getShape(self: *Self) []usize {
+            return self.shape[0..self.rank];
+        }
+
+        pub fn getStrides(self: *const Self) []const usize {
+            return self.strides[0..self.rank];
+        }
+
+        pub fn getRow(self: *const Self) usize {
+            return if (self.rank >= 2) self.getShapeConst()[self.rank - 2] else 1;
+        }
+        pub fn getCol(self: *const Self) usize {
+            return if (self.rank >= 2) self.getShapeConst()[self.rank - 1] else self.getShapeConst()[0];
+        }
+        pub fn getBatch(self: *const Self) usize {
+            return if (self.rank <= 2) 0 else @intCast(self.getShapeConst()[0]);
+        }
     };
 }
 
-pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
+pub fn CPUTensor(comptime T: type) type {
     return struct {
         base: Base,
         data: []T,
 
         const Self = @This();
-        const Base = TensorBase(rank);
+        const Base = TensorBase(max_rank);
+
+        const max_rank = 4;
 
         pub fn getSize(self: *const Self) usize {
             return self.base.countElem() * @sizeOf(T);
         }
 
-        pub fn init(allocator: std.mem.Allocator, shape: [rank]usize) !Self {
+        pub fn init(allocator: std.mem.Allocator, shape: []const usize) !Self {
             const base = Base.init(shape);
             const data = try allocator.alloc(T, base.countElem());
             errdefer allocator.free(data);
@@ -117,9 +151,10 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
             return cloned;
         }
 
-        pub fn at(self: *const Self, indices: [rank]usize) *T {
+        pub fn at(self: *const Self, indices: []usize) *T {
+            std.debug.assert(indices.len == self.base.rank);
             var offset: usize = 0;
-            for (indices, self.base.strides) |idx, stride| {
+            for (indices, self.base.getStrides()) |idx, stride| {
                 offset += idx * stride;
             }
             return &self.data[offset];
@@ -128,9 +163,9 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
         fn computeContiguity(self: *Self) void {
             var expected_stride: usize = 1;
             self.is_contiguous = true;
-            for (0..rank) |i| {
-                const dim = self.shape[rank - 1 - i];
-                if (self.strides[rank - 1 - i] != expected_stride) {
+            for (0..self.base.rank) |i| {
+                const dim = self.shape[self.base.rank - 1 - i];
+                if (self.strides[self.base.rank - 1 - i] != expected_stride) {
                     self.is_contiguous = false;
                     break;
                 }
@@ -138,76 +173,78 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn transpose(self: *Self, perm: [rank]usize) !void {
-            var new_shape: [rank]usize = undefined;
-            var new_strides: [rank]usize = undefined;
+        // pub fn transpose(self: *Self, perm: []usize) !void {
+        //     std.debug.assert(perm.len == self.base.rank);
 
-            if (perm.len != rank) {
-                return error.InvalidPermutation;
-            }
+        //     var new_shape: [rank]usize = undefined;
+        //     var new_strides: [rank]usize = undefined;
 
-            for (perm, 0..) |p, i| {
-                new_shape[i] = self.shape[p];
-                new_strides[i] = self.strides[p];
-            }
+        //     if (perm.len != rank) {
+        //         return error.InvalidPermutation;
+        //     }
 
-            self.shape = new_shape;
-            self.strides = new_strides;
+        //     for (perm, 0..) |p, i| {
+        //         new_shape[i] = self.shape[p];
+        //         new_strides[i] = self.strides[p];
+        //     }
 
-            self.computeContiguity();
-        }
+        //     self.shape = new_shape;
+        //     self.strides = new_strides;
 
-        pub fn reshape(
-            self: *Self,
-            allocator: std.mem.Allocator,
-            comptime new_rank: comptime_int,
-            new_shape: [new_rank]usize,
-        ) !CPUTensor(T, new_rank) {
-            if (!self.base.is_contiguous) {
-                return error.ReshapingNotContiguousTensor;
-            }
+        //     self.computeContiguity();
+        // }
 
-            const old_size = self.base.countElem();
-            var new_size: usize = 1;
-            for (new_shape) |dim| {
-                new_size *= dim;
-            }
+        // pub fn reshape(
+        //     self: *Self,
+        //     allocator: std.mem.Allocator,
+        //     comptime new_rank: comptime_int,
+        //     new_shape: [new_rank]usize,
+        // ) !CPUTensor(T, new_rank) {
+        //     if (!self.base.is_contiguous) {
+        //         return error.ReshapingNotContiguousTensor;
+        //     }
 
-            if (old_size != new_size) return error.InvalidReshape;
+        //     const old_size = self.base.countElem();
+        //     var new_size: usize = 1;
+        //     for (new_shape) |dim| {
+        //         new_size *= dim;
+        //     }
 
-            var new_tensor = try CPUTensor(T, new_rank).init(allocator, new_shape);
-            errdefer new_tensor.deinit(allocator);
+        //     if (old_size != new_size) return error.InvalidReshape;
 
-            new_tensor.write(self.data, 0);
+        //     var new_tensor = try CPUTensor(T, new_rank).init(allocator, new_shape);
+        //     errdefer new_tensor.deinit(allocator);
 
-            return new_tensor;
-        }
+        //     new_tensor.write(self.data, 0);
 
-        pub fn contiguousHost(self: *Self, allocator: std.mem.Allocator) !Self {
-            if (self.is_contiguous) {
-                return try self.clone(allocator);
-            }
+        //     return new_tensor;
+        // }
 
-            var new_tensor = try Self.init(allocator, self.shape);
-            errdefer new_tensor.deinit(allocator);
+        // pub fn contiguousHost(self: *Self, allocator: std.mem.Allocator) !Self {
+        //     if (self.is_contiguous) {
+        //         return try self.clone(allocator);
+        //     }
 
-            // Iterate over all elements using multi-dimensional indexing
-            var indices: [rank]usize = .{0} ** rank;
+        //     var new_tensor = try Self.init(allocator, self.shape);
+        //     errdefer new_tensor.deinit(allocator);
 
-            while (true) {
-                new_tensor.at(indices).* = self.at(indices).*;
+        //     // Iterate over all elements using multi-dimensional indexing
+        //     var indices: [rank]usize = .{0} ** rank;
 
-                // Increment multi-dimensional indices
-                var dim: usize = rank;
-                while (dim > 0) {
-                    dim -= 1;
-                    indices[dim] += 1;
-                    if (indices[dim] < self.shape[dim]) break;
-                    indices[dim] = 0;
-                    if (dim == 0) return new_tensor; // Exit when the last index resets
-                }
-            }
-        }
+        //     while (true) {
+        //         new_tensor.at(indices).* = self.at(indices).*;
+
+        //         // Increment multi-dimensional indices
+        //         var dim: usize = rank;
+        //         while (dim > 0) {
+        //             dim -= 1;
+        //             indices[dim] += 1;
+        //             if (indices[dim] < self.shape[dim]) break;
+        //             indices[dim] = 0;
+        //             if (dim == 0) return new_tensor; // Exit when the last index resets
+        //         }
+        //     }
+        // }
 
         pub fn format(
             self: Self,
@@ -215,7 +252,7 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
             _: std.fmt.FormatOptions,
             writer: anytype,
         ) !void {
-            var indices: [rank]usize = .{0} ** rank;
+            var indices: [self.base.max_rank]usize = .{0} ** self.base.max_rank;
             try self.printRecursive(fmt, &indices, 0, 0, writer);
         }
 
@@ -231,19 +268,19 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
         fn printRecursive(
             self: *const Self,
             comptime fmt: []const u8,
-            indices: *[rank]usize,
+            indices: *[self.base.max_rank]usize,
             depth: usize,
             indent: usize,
             writer: anytype,
         ) !void {
-            if (depth == rank - 1) {
+            if (depth == self.base.rank - 1) {
                 // At the last dimension: print a row
                 try printIndent(writer, indent);
                 try writer.print("[ ", .{});
                 var i: usize = 0;
                 while (i < self.base.shape[depth]) : (i += 1) {
                     indices[depth] = i;
-                    try writer.print("{" ++ fmt ++ "}, ", .{self.at(indices.*).*});
+                    try writer.print("{" ++ fmt ++ "}, ", .{self.at(indices[0..self.base.rank]).*});
                 }
                 try writer.print("],\n", .{});
             } else {
@@ -261,8 +298,8 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn toDevice(self: *const Self, stream: *const Stream) !GPUTensor(T, rank) {
-            var out = try GPUTensor(T, rank).initAsync(self.base.shape, stream);
+        pub fn toDevice(self: *const Self, stream: *const Stream) !GPUTensor(T) {
+            var out = try GPUTensor(T).initAsync(self.base.shape, stream);
             errdefer out.deinitAsync(stream);
 
             try out.writeFromHostAsync(self.data, 0, stream);
@@ -272,14 +309,25 @@ pub fn CPUTensor(comptime T: type, comptime rank: comptime_int) type {
     };
 }
 
-pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
+pub fn GPUTensor(comptime T: type) type {
     return struct {
         ptr: ?[*]T = null,
         base: Base = undefined,
 
+        const max_rank: comptime_int = 4;
         const Self = @This();
-        const Base = TensorBase(rank);
+        const Base = TensorBase(max_rank);
         pub const Elem = T;
+
+        pub fn move(self: *Self) Self {
+            const ptr = self.ptr;
+            self.ptr = null;
+
+            return .{
+                .ptr = ptr,
+                .base = self.base,
+            };
+        }
 
         pub fn calcLen(self: *const Self) usize {
             return self.base.countElem();
@@ -289,7 +337,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             return self.base.countElem() * @sizeOf(T);
         }
 
-        pub fn initSync(shape: [rank]usize) !Self {
+        pub fn initSync(shape: []usize) !Self {
             const base = Base.init(shape);
             var ptr: ?[*]T = null;
             try err.checkCuda(c.cudaMalloc(@ptrCast(&ptr), base.countElem() * @sizeOf(T)));
@@ -299,7 +347,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             };
         }
 
-        pub fn initAsync(shape: [rank]usize, stream: *const Stream) !Self {
+        pub fn initAsync(shape: []const usize, stream: *const Stream) !Self {
             const base = Base.init(shape);
             var ptr: ?[*]T = null;
             try err.checkCuda(c.cudaMallocAsync(@ptrCast(&ptr), base.countElem() * @sizeOf(T), stream.stream));
@@ -425,8 +473,8 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             }
         }
 
-        pub fn toHost(self: *const Self, allocator: std.mem.Allocator, stream: *const Stream) !CPUTensor(T, rank) {
-            var host_tensor = try CPUTensor(T, rank).init(allocator, self.base.shape);
+        pub fn toHost(self: *const Self, allocator: std.mem.Allocator, stream: *const Stream) !CPUTensor(T) {
+            var host_tensor = try CPUTensor(T).init(allocator, self.base.getShapeConst());
             errdefer host_tensor.deinit(allocator);
 
             try host_tensor.writeFromDevice(self.ptr.?, self.calcLen(), 0, stream);
@@ -434,7 +482,7 @@ pub fn GPUTensor(comptime T: type, comptime rank: comptime_int) type {
             return host_tensor;
         }
 
-        pub usingnamespace TensorOp(T, rank);
-        pub usingnamespace TensorFillRandom(T, rank);
+        pub usingnamespace TensorOp(T);
+        pub usingnamespace TensorFillRandom(T);
     };
 }

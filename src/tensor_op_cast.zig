@@ -6,12 +6,12 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const BF16 = @import("bf16.zig").BF16;
 
-pub fn TensorOpCast(comptime T: type, comptime rank: comptime_int) type {
+pub fn TensorOpCast(comptime T: type) type {
     return struct {
-        const Self = GPUTensor(T, rank);
+        const Self = GPUTensor(T);
 
-        pub fn cast(self: *const Self, comptime U: type, stream: *const Stream) !GPUTensor(U, rank) {
-            var res = GPUTensor(U, rank){};
+        pub fn cast(self: *const Self, comptime U: type, stream: *const Stream) !GPUTensor(U) {
+            var res = GPUTensor(U){};
             try res.initAsync(self.base.shape, stream);
             errdefer res.deinitAsync(stream);
 

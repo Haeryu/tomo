@@ -6,9 +6,9 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const Bf16 = @import("bf16.zig").BF16;
 
-pub fn TensorOpReduction(comptime T: type, comptime rank: comptime_int) type {
+pub fn TensorOpReduction(comptime T: type) type {
     return struct {
-        const Self = GPUTensor(T, rank);
+        const Self = GPUTensor(T);
 
         pub fn sumReduce(
             self: *Self,

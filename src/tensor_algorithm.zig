@@ -6,9 +6,9 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const BF16 = @import("bf16.zig").BF16;
 
-pub fn TensorAlgorithm(comptime T: type, comptime rank: comptime_int) type {
+pub fn TensorAlgorithm(comptime T: type) type {
     return struct {
-        const Self = GPUTensor(T, rank);
+        const Self = GPUTensor(T);
 
         pub fn fill(self: *Self, val: T, stream: *const Stream) !void {
             switch (T) {
