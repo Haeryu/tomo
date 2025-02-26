@@ -27,5 +27,23 @@ pub fn TensorOpElemwise(comptime T: type) type {
                 else => unreachable,
             }
         }
+
+        pub fn divide(self: *Self, other: *const Self, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoDivideB(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoDivideH(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoDivideF(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoDivideD(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
     };
 }

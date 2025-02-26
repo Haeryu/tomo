@@ -394,7 +394,7 @@ pub fn GPUTensor(comptime T: type) type {
         pub fn cloneAsync(self: *const Self, stream: *const Stream) !Self {
             //std.debug.assert(cloned.ptr == null);
 
-            var cloned = try Self.initAsync(self.base.shape, stream);
+            var cloned = try Self.initAsync(self.base.getShapeConst(), stream);
             errdefer cloned.deinitAsync(stream);
 
             try cloned.writeAsync(self.ptr.?, self.calcLen(), 0, stream);
@@ -421,7 +421,7 @@ pub fn GPUTensor(comptime T: type) type {
         }
 
         pub fn cloneSync(self: *const Self) !Self {
-            var cloned = try Self.initSync(self.shape);
+            var cloned = try Self.initSync(self.base.getShape());
             errdefer cloned.deinitSync();
 
             try cloned.writeSync(self.ptr, self.calcLen(), 0);
@@ -482,45 +482,7 @@ pub fn GPUTensor(comptime T: type) type {
             return host_tensor;
         }
 
-        pub fn getErasedPtr(self: *Self) GPUTensorErasedPtr {
-            return GPUTensorErasedPtr.init(self);
-        }
-
         pub usingnamespace TensorOp(T);
         pub usingnamespace TensorFillRandom(T);
     };
 }
-
-pub const FloatType = enum {
-    bf16,
-    f16,
-    f32,
-    f64,
-};
-
-pub const GPUTensorErasedPtr = struct {
-    comptime float_type: FloatType = .f32,
-    ptr: *anyopaque,
-
-    pub fn init(p_gpu_tensor: anytype) GPUTensorErasedPtr {
-        return .{
-            .ptr = p_gpu_tensor,
-            .float_type = switch (@typeInfo(@TypeOf(p_gpu_tensor)).pointer.child.Elem) {
-                BF16 => .bf16,
-                f16 => .f16,
-                f32 => .f32,
-                f64 => .f64,
-                else => unreachable,
-            },
-        };
-    }
-
-    pub fn asOriginal(self: *GPUTensorErasedPtr) *GPUTensor(switch (self.float_type) {
-        .bf16 => BF16,
-        .f16 => f16,
-        .f32 => f32,
-        .f64 => f64,
-    }) {
-        return @ptrCast(@alignCast(self.ptr));
-    }
-};

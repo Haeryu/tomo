@@ -64,3 +64,23 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoProductD(double *a, double const *b, 
 {
     return tomoElemwise(a, b, len, thrust::multiplies<double>(), stream);
 }
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideH(__half_raw *a, __half_raw const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::divides<__half_raw>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::divides<__nv_bfloat16_raw>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideF(float *a, float const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::divides<float>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideD(double *a, double const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::divides<double>(), stream);
+}
