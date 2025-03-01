@@ -417,13 +417,20 @@ pub fn TensorOpBlas(comptime T: type) type {
                 }
             }
 
-            var out_tensor = try Self.initAsync(if (self.base.rank == 3) &.{
-                self.base.getBatch(),
-                self.base.getRow(),
-                self.base.getCol(),
-            } else &.{
-                self.base.getRow(),
-                self.base.getCol(),
+            var out_tensor = try Self.initAsync(switch (self.base.rank) {
+                3 => &.{
+                    self.base.getBatch(),
+                    self.base.getRow(),
+                    self.base.getCol(),
+                },
+                2 => &.{
+                    self.base.getRow(),
+                    self.base.getCol(),
+                },
+                1 => &.{
+                    self.base.getRow(),
+                },
+                else => unreachable,
             }, stream);
             errdefer out_tensor.deinitAsync(stream);
 

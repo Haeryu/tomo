@@ -151,7 +151,7 @@ pub fn CPUTensor(comptime T: type) type {
             return cloned;
         }
 
-        pub fn at(self: *const Self, indices: []usize) *T {
+        pub fn at(self: *const Self, indices: []const usize) *T {
             std.debug.assert(indices.len == self.base.rank);
             var offset: usize = 0;
             for (indices, self.base.getStrides()) |idx, stride| {
@@ -433,7 +433,7 @@ pub fn GPUTensor(comptime T: type) type {
             self: *const Self,
             comptime new_rank: comptime_int,
             new_tensor: *GPUTensor(T, new_rank),
-            new_shape: [new_rank]usize,
+            new_shape: []const usize,
             stream: *const Stream,
         ) !void {
             std.debug.assert(new_tensor.ptr == null);
