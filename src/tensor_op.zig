@@ -10,6 +10,7 @@ const TensorAlgorithm = @import("tensor_algorithm.zig").TensorAlgorithm;
 const TensorOpCast = @import("tensor_op_cast.zig").TensorOpCast;
 const TensorOpBlas = @import("tensor_op_blas.zig").TensorOpBlas;
 const TensorOpElemwise = @import("tensor_op_elemwise.zig").TensorOpElemwise;
+const TensorOpBroadCast = @import("tensor_op_broadcast.zig").TensorOpBroadCast;
 
 pub fn TensorOp(comptime T: type) type {
     return struct {
@@ -21,5 +22,6 @@ pub fn TensorOp(comptime T: type) type {
         pub usingnamespace TensorOpCast(T);
         pub usingnamespace TensorOpBlas(T);
         pub usingnamespace TensorOpElemwise(T);
+        pub usingnamespace TensorOpBroadCast(T);
     };
 }

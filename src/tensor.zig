@@ -486,6 +486,16 @@ pub fn GPUTensor(comptime T: type) type {
             return self.ptr == null;
         }
 
+        pub fn squeeze(self: *Self, allocator: std.mem.Allocator) !void {
+            var new_shape = std.ArrayList(usize).init(allocator);
+            defer new_shape.deinit();
+
+            for (self.base.getShapeConst()) |dim| {
+                if (dim != 1) try new_shape.append(dim);
+            }
+            self.base = Base.init(new_shape.items);
+        }
+
         pub usingnamespace TensorOp(T);
         pub usingnamespace TensorFillRandom(T);
     };
