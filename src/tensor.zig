@@ -25,15 +25,15 @@ pub fn TensorBase(comptime max_rank: comptime_int) type {
             var strides: [max_rank]usize = .{0} ** max_rank;
             var shape: [max_rank]usize = .{0} ** max_rank;
 
+            for (shape[0..rank], shape_slice) |*s1, s2| {
+                s1.* = s2;
+            }
+
             // Compute strides based on memory format
             strides[rank - 1] = 1;
             var i: usize = rank - 1;
             while (i > 0) : (i -= 1) {
                 strides[i - 1] = strides[i] * shape[i];
-            }
-
-            for (shape[0..rank], shape_slice) |*s1, s2| {
-                s1.* = s2;
             }
 
             return .{
@@ -59,7 +59,7 @@ pub fn TensorBase(comptime max_rank: comptime_int) type {
             // e.g. for a 2D weight matrix [fan_out, fan_in], or
             // for convolution [out_channels, in_channels * kernel_h * kernel_w], etc.
             // This is up to you how you want to interpret 'shape'.
-            if (self.rank == 2) {
+            if (self.getShape().len == 2) {
                 return .{ self.shape[1], self.shape[0] }; // fan_in, fan_out
             } else {
                 // for a 4D conv: [out_channels, in_channels, kernel_h, kernel_w]

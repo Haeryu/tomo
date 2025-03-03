@@ -17,12 +17,13 @@ pub fn main() !void {
     const row1 = 3;
     const col1 = 4;
 
-    const row2 = 12;
-    const col2 = 12;
+    const row2 = 6;
+    const col2 = 8;
 
     var device_tensor1 = try tm.tensor.GPUTensor(F).initAsync(&.{ row1, col1 }, &stream);
     defer device_tensor1.deinitAsync(&stream);
-    try device_tensor1.fillHeNormal(&cuda_context, &stream);
+    try device_tensor1.fillHeUniform(&cuda_context, &stream);
+    //try device_tensor1.writeFromHostAsync(&.{ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0 }, 0, &stream);
 
     var broad = try device_tensor1.broadCastTo(&.{ row2, col2 }, &stream);
     defer broad.deinitAsync(&stream);
