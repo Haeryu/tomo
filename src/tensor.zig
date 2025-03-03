@@ -482,6 +482,10 @@ pub fn GPUTensor(comptime T: type) type {
             return host_tensor;
         }
 
+        pub fn isInvalidated(self: *const Self) bool {
+            return self.ptr == null;
+        }
+
         pub usingnamespace TensorOp(T);
         pub usingnamespace TensorFillRandom(T);
     };
