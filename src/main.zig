@@ -5,6 +5,11 @@ const std = @import("std");
 pub fn main() !void {
     // const allocator = tm.allocator.cuda_pinned_allocator;
 
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    defer _ = gpa.deinit();
+
+    const allocator = gpa.allocator();
+
     var stream = try tm.stream.Stream.create();
     defer stream.destroy();
 
@@ -28,17 +33,17 @@ pub fn main() !void {
     var broad = try device_tensor1.broadCastTo(&.{ row2, col2 }, &stream);
     defer broad.deinitAsync(&stream);
 
-    var sum = try device_tensor1.sum(tm.allocator.cuda_pinned_allocator, &.{1}, false, &stream);
+    var sum = try device_tensor1.sum(allocator, &.{1}, false, &stream);
     defer sum.deinitAsync(&stream);
 
-    var host = try device_tensor1.toHost(tm.allocator.cuda_pinned_allocator, &stream);
-    defer host.deinit(tm.allocator.cuda_pinned_allocator);
+    var host = try device_tensor1.toHost(allocator, &stream);
+    defer host.deinit(allocator);
 
-    var broad_host = try broad.toHost(tm.allocator.cuda_pinned_allocator, &stream);
-    defer broad_host.deinit(tm.allocator.cuda_pinned_allocator);
+    var broad_host = try broad.toHost(allocator, &stream);
+    defer broad_host.deinit(allocator);
 
-    var sum_host = try sum.toHost(tm.allocator.cuda_pinned_allocator, &stream);
-    defer sum_host.deinit(tm.allocator.cuda_pinned_allocator);
+    var sum_host = try sum.toHost(allocator, &stream);
+    defer sum_host.deinit(allocator);
 
     try stream.sync();
 
