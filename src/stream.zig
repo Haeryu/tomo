@@ -14,9 +14,15 @@ pub const Stream = struct {
         return .{ .stream = stream };
     }
 
+    pub fn default() Stream {
+        return .{ .stream = null };
+    }
+
     pub fn destroy(self: *Stream) void {
         self.sync() catch {};
-        _ = c.cudaStreamDestroy(self.stream);
+        if (self.stream) |stream| {
+            _ = c.cudaStreamDestroy(stream);
+        }
         self.stream = null;
     }
 

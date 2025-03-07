@@ -243,11 +243,11 @@ pub fn TensorOpBlas(comptime T: type) type {
 
             var out_tensor = try GPUTensor(OutType).initAsync(if (self.base.rank == 3) &.{
                 self.base.getBatch(),
-                self.base.getRow(),
                 other_tensor.base.getCol(),
+                self.base.getRow(),
             } else &.{
-                self.base.getRow(),
                 other_tensor.base.getCol(),
+                self.base.getRow(),
             }, stream);
             errdefer out_tensor.deinitAsync(stream);
 
@@ -420,14 +420,15 @@ pub fn TensorOpBlas(comptime T: type) type {
             var out_tensor = try Self.initAsync(switch (self.base.rank) {
                 3 => &.{
                     self.base.getBatch(),
-                    self.base.getRow(),
                     self.base.getCol(),
+                    self.base.getRow(),
                 },
                 2 => &.{
-                    self.base.getRow(),
                     self.base.getCol(),
+                    self.base.getRow(),
                 },
                 1 => &.{
+                    self.base.getCol(),
                     self.base.getRow(),
                 },
                 else => unreachable,
@@ -528,7 +529,7 @@ pub fn TensorOpBlas(comptime T: type) type {
         }
 
         pub fn transpose(
-            self: *Self,
+            self: *const Self,
             cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !Self {

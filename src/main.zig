@@ -30,11 +30,14 @@ pub fn main() !void {
     try device_tensor1.fillHeUniform(&cuda_context, &stream);
     //try device_tensor1.writeFromHostAsync(&.{ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0 }, 0, &stream);
 
-    var broad = try device_tensor1.broadCastTo(&.{ row2, col2 }, &stream);
+    var broad = try device_tensor1.broadcastTo(&.{ row2, col2 }, &stream);
     defer broad.deinitAsync(&stream);
 
     var sum = try device_tensor1.sum(allocator, &.{1}, false, &stream);
     defer sum.deinitAsync(&stream);
+
+    var sum_t = try sum.transpose(&cuda_context, &stream);
+    defer sum_t.deinitAsync(&stream);
 
     var host = try device_tensor1.toHost(allocator, &stream);
     defer host.deinit(allocator);

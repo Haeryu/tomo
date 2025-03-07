@@ -10,8 +10,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
 
-        pub fn broadCastTo(
-            self: *Self,
+        pub fn broadcastTo(
+            self: *const Self,
             new_shape: []const usize,
             stream: *const Stream,
         ) !GPUTensor(T) {
@@ -62,15 +62,15 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoBroadcastToF(
                         self.ptr,
                         out.ptr,
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape.ptr,
                         new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -78,15 +78,15 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoBroadcastToD(
                         self.ptr,
                         out.ptr,
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape.ptr,
                         new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -102,6 +102,17 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             axes: []const isize,
             keepdims: bool,
         ) !std.meta.Tuple(&.{ []usize, []usize }) {
+            if (std.mem.eql(isize, axes, &.{})) {
+                const axes_all = try allocator.alloc(isize, in_shape.len);
+                defer allocator.free(axes_all);
+
+                for (0..in_shape.len) |i| {
+                    axes_all[i] = @intCast(i);
+                }
+
+                return try computeOutShape(allocator, in_shape, axes_all, keepdims);
+            }
+
             // Allocate a temporary boolean array to mark summed axes.
             var to_sum = try allocator.alloc(bool, in_shape.len);
             defer allocator.free(to_sum);
@@ -144,13 +155,13 @@ pub fn TensorOpBroadCast(comptime T: type) type {
         }
 
         pub fn sum(
-            self: *Self,
+            self: *const Self,
             allocator: std.mem.Allocator,
             axes: []const isize,
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(T) {
-            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShape(), axes, keepdims);
+            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
             defer allocator.free(new_shape);
             defer allocator.free(new_shape_keepdims);
 
@@ -200,8 +211,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoSumToF(
                         self.ptr,
                         out.ptr,
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape_keepdims.ptr,
                         new_shape_keepdims.len,
                         self.base.getStrides().ptr,
@@ -210,7 +221,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -218,8 +229,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoSumToD(
                         self.ptr,
                         out.ptr,
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape_keepdims.ptr,
                         new_shape_keepdims.len,
                         self.base.getStrides().ptr,
@@ -228,7 +239,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -240,6 +251,50 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             }
 
             return out;
+        }
+
+        pub fn sumTo(
+            self: *const Self,
+            allocator: std.mem.Allocator,
+            shape: []const usize,
+            stream: *const Stream,
+        ) !GPUTensor(T) {
+            const target_ndim = shape.len;
+            const lead = self.base.getShapeConst().len - target_ndim;
+
+            var lead_axis: [self.base.max_rank]usize = undefined;
+            var lead_axis_count: usize = 0;
+            var i: usize = 0;
+            while (i < lead) : (i += 1) {
+                lead_axis[lead_axis_count] = i;
+                lead_axis_count += 1;
+            }
+
+            var ones_axis: [self.base.max_rank]usize = undefined;
+            var ones_axis_count: usize = 0;
+            i = 0;
+            while (i < target_ndim) : (i += 1) {
+                if (shape[i] == 1) {
+                    // Offset by the number of lead dimensions.
+                    ones_axis[ones_axis_count] = i + lead;
+                    ones_axis_count += 1;
+                }
+            }
+
+            var sum_axes: [self.base.max_rank]isize = undefined;
+            var sum_axes_count: usize = 0;
+            i = 0;
+            while (i < lead_axis_count) : (i += 1) {
+                sum_axes[sum_axes_count] = @intCast(lead_axis[i]);
+                sum_axes_count += 1;
+            }
+            i = 0;
+            while (i < ones_axis_count) : (i += 1) {
+                sum_axes[sum_axes_count] = @intCast(ones_axis[i]);
+                sum_axes_count += 1;
+            }
+
+            return try self.sum(allocator, sum_axes[0..sum_axes_count], true, stream);
         }
     };
 }

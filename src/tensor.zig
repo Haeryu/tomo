@@ -152,7 +152,7 @@ pub fn CPUTensor(comptime T: type) type {
         }
 
         pub fn at(self: *const Self, indices: []const usize) *T {
-            std.debug.assert(indices.len == self.base.rank);
+            std.debug.assert(indices.len == self.base.getShapeConst().len);
             var offset: usize = 0;
             for (indices, self.base.getStrides()) |idx, stride| {
                 offset += idx * stride;
@@ -316,7 +316,7 @@ pub fn GPUTensor(comptime T: type) type {
 
         pub const max_rank: comptime_int = 4;
         const Self = @This();
-        const Base = TensorBase(max_rank);
+        pub const Base = TensorBase(max_rank);
         pub const Elem = T;
 
         pub fn move(self: *Self) Self {

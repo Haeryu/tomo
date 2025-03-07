@@ -22,8 +22,8 @@ pub fn Epilogue(comptime BiasTensor: type, comptime AuxTensor: type) type {
 
         pub const Config = struct {
             activation: Activation = .none,
-            bias_tensor: ?BiasTensor = null,
-            aux_tensor: ?AuxTensor = null,
+            bias_tensor: ?*const BiasTensor = null,
+            aux_tensor: ?*const AuxTensor = null,
         };
 
         const Self = @This();
@@ -72,9 +72,9 @@ pub fn Epilogue(comptime BiasTensor: type, comptime AuxTensor: type) type {
 
         pub fn setAuxTensor(matmul_desc: c.cublasLtMatmulDesc_t, config: Config) !void {
             if (config.aux_tensor) |aux_buf| {
-                const aux_data_type: c.cublasDataType_t = @intCast(@TypeOf(aux_buf).getCudaDatatype());
-                const row: u64 = aux_buf.base.shape[aux_buf.base.shape.len - 2];
-                const col: u64 = aux_buf.base.shape[aux_buf.base.shape.len - 1];
+                const aux_data_type: c.cublasDataType_t = @intCast(AuxTensor.getCudaDatatype());
+                const row: u64 = aux_buf.base.getRow();
+                const col: u64 = aux_buf.base.getCol();
                 const batch_stride: i64 = @intCast(row * col);
                 try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                     matmul_desc,
@@ -105,9 +105,9 @@ pub fn Epilogue(comptime BiasTensor: type, comptime AuxTensor: type) type {
 
         pub fn setBiasTensor(matmul_desc: c.cublasLtMatmulDesc_t, config: Config) !void {
             if (config.bias_tensor) |bias_buf| {
-                const bias_data_type: c.cublasDataType_t = @intCast(@TypeOf(bias_buf).getCudaDatatype());
-                const row: u64 = bias_buf.base.shape[bias_buf.base.shape.len - 2];
-                const col: u64 = bias_buf.base.shape[bias_buf.base.shape.len - 1];
+                const bias_data_type: c.cublasDataType_t = @intCast(BiasTensor.getCudaDatatype());
+                const row: u64 = bias_buf.base.getRow();
+                const col: u64 = bias_buf.base.getCol();
                 const batch_stride: i64 = @intCast(row * col);
                 try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                     matmul_desc,
@@ -175,7 +175,7 @@ pub fn DEpilogue(comptime BiasGradTensor: type) type {
         pub const Config = struct {
             activation: DActivation = .none,
             bias_grad_apply: DBiasApply = .none,
-            bias_grad_tensor: ?BiasGradTensor = null,
+            bias_grad_tensor: ?*const BiasGradTensor = null,
         };
 
         const Self = @This();
@@ -221,8 +221,8 @@ pub fn DEpilogue(comptime BiasGradTensor: type) type {
         pub fn setBiasGradTensor(matmul_desc: c.cublasLtMatmulDesc_t, config: Config) !void {
             if (config.bias_grad_tensor) |bias_grad_tensor| {
                 const bias_data_type: c.cublasDataType_t = @intCast(@TypeOf(bias_grad_tensor).getCudaDatatype());
-                const row: u64 = bias_grad_tensor.base.shape[bias_grad_tensor.base.shape.len - 2];
-                const col: u64 = bias_grad_tensor.base.shape[bias_grad_tensor.base.shape.len - 1];
+                const row: u64 = bias_grad_tensor.base.getRow();
+                const col: u64 = bias_grad_tensor.base.getCol();
                 const batch_stride: i64 = @intCast(row * col);
                 try err.checkCublas(c.cublasLtMatmulDescSetAttribute(
                     matmul_desc,
