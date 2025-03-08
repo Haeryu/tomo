@@ -10,6 +10,42 @@ pub fn TensorOpElemwise(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
 
+        pub fn add(self: *Self, other: *const Self, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoAddB(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoAddH(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoAddF(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoAddD(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn sub(self: *Self, other: *const Self, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoSubB(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoSubH(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoSubF(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoSubD(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
         pub fn product(self: *Self, other: *const Self, stream: *const Stream) !void {
             switch (T) {
                 Bf16 => {

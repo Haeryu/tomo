@@ -11,8 +11,8 @@ pub fn TensorOpCast(comptime T: type) type {
         const Self = GPUTensor(T);
 
         pub fn cast(self: *const Self, comptime U: type, stream: *const Stream) !GPUTensor(U) {
-            var res = GPUTensor(U){};
-            try res.initAsync(self.base.shape, stream);
+            var res = try GPUTensor(U).initAsync(self.base.getShapeConst(), stream);
+
             errdefer res.deinitAsync(stream);
 
             switch (T) {

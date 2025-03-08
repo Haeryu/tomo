@@ -45,6 +45,46 @@ cudaError_t tomoElemwise(auto *a,
     return cudaSuccess;
 }
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAddH(__half_raw *a, __half_raw const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::plus<__half_raw>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAddB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::plus<__nv_bfloat16_raw>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAddF(float *a, float const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::plus<float>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAddD(double *a, double const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::plus<double>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSubH(__half_raw *a, __half_raw const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::minus<__half_raw>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSubB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::minus<__nv_bfloat16_raw>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSubF(float *a, float const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::minus<float>(), stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSubD(double *a, double const *b, size_t len, cudaStream_t stream)
+{
+    return tomoElemwise(a, b, len, thrust::minus<double>(), stream);
+}
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoProductH(__half_raw *a, __half_raw const *b, size_t len, cudaStream_t stream)
 {
     return tomoElemwise(a, b, len, thrust::multiplies<__half_raw>(), stream);

@@ -296,5 +296,28 @@ pub fn TensorOpBroadCast(comptime T: type) type {
 
             return try self.sum(allocator, sum_axes[0..sum_axes_count], true, stream);
         }
+
+        pub fn transpose(
+            self: *const Self,
+            stream: *const Stream,
+        ) Self {
+            var res = try Self.initAsync(.{ self.base.getCol(), self.base.getRow() }, stream);
+            errdefer res.deinitAsync(stream);
+
+            switch (T) {
+                Bf16 => {
+                    try c.tomoTransposeB(@ptrCast(self.ptr), self.base.getRow(), self.base.getCol(), @ptrCast(res.ptr), stream);
+                },
+                f16 => {
+                    try c.tomoTransposeH(@ptrCast(self.ptr), self.base.getRow(), self.base.getCol(), @ptrCast(res.ptr), stream);
+                },
+                f32 => {
+                    try c.tomoTransposeF(self.ptr, self.base.getRow(), self.base.getCol(), res.ptr, stream);
+                },
+                f64 => {
+                    try c.tomoTransposeD(self.ptr, self.base.getRow(), self.base.getCol(), res.ptr, stream);
+                },
+            }
+        }
     };
 }
