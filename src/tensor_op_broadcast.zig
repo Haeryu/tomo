@@ -28,8 +28,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoBroadcastToB(
-                        @ptrCast(self.ptr),
-                        @ptrCast(out.ptr),
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
                         new_shape.ptr,
@@ -44,8 +44,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 },
                 f16 => {
                     try err.checkCuda(c.tomoBroadcastToH(
-                        @ptrCast(self.ptr),
-                        @ptrCast(out.ptr),
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
                         new_shape.ptr,
@@ -60,8 +60,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 },
                 f32 => {
                     try err.checkCuda(c.tomoBroadcastToF(
-                        self.ptr,
-                        out.ptr,
+                        self.ptr.?,
+                        out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
                         new_shape.ptr,
@@ -76,8 +76,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 },
                 f64 => {
                     try err.checkCuda(c.tomoBroadcastToD(
-                        self.ptr,
-                        out.ptr,
+                        self.ptr.?,
+                        out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
                         new_shape.ptr,
@@ -173,8 +173,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoSumToB(
-                        @ptrCast(self.ptr),
-                        @ptrCast(out.ptr),
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
                         new_shape_keepdims.ptr,
@@ -191,8 +191,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 },
                 f16 => {
                     try err.checkCuda(c.tomoSumToH(
-                        @ptrCast(self.ptr),
-                        @ptrCast(out.ptr),
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
                         new_shape_keepdims.ptr,
@@ -209,8 +209,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 },
                 f32 => {
                     try err.checkCuda(c.tomoSumToF(
-                        self.ptr,
-                        out.ptr,
+                        self.ptr.?,
+                        out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
                         new_shape_keepdims.ptr,
@@ -227,8 +227,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 },
                 f64 => {
                     try err.checkCuda(c.tomoSumToD(
-                        self.ptr,
-                        out.ptr,
+                        self.ptr.?,
+                        out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
                         new_shape_keepdims.ptr,
@@ -300,24 +300,27 @@ pub fn TensorOpBroadCast(comptime T: type) type {
         pub fn transpose(
             self: *const Self,
             stream: *const Stream,
-        ) Self {
-            var res = try Self.initAsync(.{ self.base.getCol(), self.base.getRow() }, stream);
+        ) !Self {
+            var res = try Self.initAsync(&.{ self.base.getCol(), self.base.getRow() }, stream);
             errdefer res.deinitAsync(stream);
 
             switch (T) {
                 Bf16 => {
-                    try c.tomoTransposeB(@ptrCast(self.ptr), self.base.getRow(), self.base.getCol(), @ptrCast(res.ptr), stream);
+                    try err.checkCuda(c.tomoTransposeB(@ptrCast(self.ptr.?), self.base.getRow(), self.base.getCol(), @ptrCast(res.ptr), stream.stream));
                 },
                 f16 => {
-                    try c.tomoTransposeH(@ptrCast(self.ptr), self.base.getRow(), self.base.getCol(), @ptrCast(res.ptr), stream);
+                    try err.checkCuda(c.tomoTransposeH(@ptrCast(self.ptr.?), self.base.getRow(), self.base.getCol(), @ptrCast(res.ptr), stream.stream));
                 },
                 f32 => {
-                    try c.tomoTransposeF(self.ptr, self.base.getRow(), self.base.getCol(), res.ptr, stream);
+                    try err.checkCuda(c.tomoTransposeF(self.ptr.?, self.base.getRow(), self.base.getCol(), res.ptr, stream.stream));
                 },
                 f64 => {
-                    try c.tomoTransposeD(self.ptr, self.base.getRow(), self.base.getCol(), res.ptr, stream);
+                    try err.checkCuda(c.tomoTransposeD(self.ptr.?.?, self.base.getRow(), self.base.getCol(), res.ptr, stream.stream));
                 },
+                else => unreachable,
             }
+
+            return res.move();
         }
     };
 }

@@ -10,20 +10,20 @@ pub fn TensorOpLinear(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
 
-        pub fn linear(self: *const Self, other: *const Self, bias: ?*const Self, stream: *const Stream) !void {
+        pub fn linear(self: *const Self, other: *const Self, bias: ?*const Self, stream: *const Stream) !Self {
             std.debug.assert(self.base.getCol() == other.base.getRow());
             if (bias) |b| {
                 std.debug.assert(b.base.getRow() == self.base.getRow());
                 std.debug.assert(b.base.getCol() == other.base.getCol());
             }
-            var res = try Self.initAsync(.{ self.base.getRow(), other.base.getCol() }, stream);
+            var res = try Self.initAsync(&.{ self.base.getRow(), other.base.getCol() }, stream);
             errdefer res.deinitAsync(stream);
 
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoLinearB(
-                        @ptrCast(self.ptr),
-                        @ptrCast(other.ptr),
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(other.ptr.?),
                         self.base.getRow(),
                         self.base.getCol(),
                         other.base.getCol(),
@@ -34,8 +34,8 @@ pub fn TensorOpLinear(comptime T: type) type {
                 },
                 f16 => {
                     try err.checkCuda(c.tomoLinearH(
-                        @ptrCast(self.ptr),
-                        @ptrCast(other.ptr),
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(other.ptr.?),
                         self.base.getRow(),
                         self.base.getCol(),
                         other.base.getCol(),
@@ -45,9 +45,9 @@ pub fn TensorOpLinear(comptime T: type) type {
                     ));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoLinearH(
-                        self.ptr,
-                        other.ptr,
+                    try err.checkCuda(c.tomoLinearF(
+                        self.ptr.?,
+                        other.ptr.?,
                         self.base.getRow(),
                         self.base.getCol(),
                         other.base.getCol(),
@@ -57,9 +57,9 @@ pub fn TensorOpLinear(comptime T: type) type {
                     ));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoLinearH(
-                        self.ptr,
-                        other.ptr,
+                    try err.checkCuda(c.tomoLinearD(
+                        self.ptr.?,
+                        other.ptr.?,
                         self.base.getRow(),
                         self.base.getCol(),
                         other.base.getCol(),

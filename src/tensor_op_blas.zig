@@ -36,7 +36,7 @@ pub fn TensorOpBlas(comptime T: type) type {
         //                 cuda_context.cublas_handle,
         //                 @intCast(n),
         //                 &alpha,
-        //                 @ptrCast(self.ptr.?),
+        //                 @ptrCast(self.ptr.?.?),
         //                 incx,
         //                 @ptrCast(result.ptr.?),
         //                 incy,
@@ -47,7 +47,7 @@ pub fn TensorOpBlas(comptime T: type) type {
         //                 cuda_context.cublas_handle,
         //                 @intCast(n),
         //                 &alpha,
-        //                 @ptrCast(self.ptr.?),
+        //                 @ptrCast(self.ptr.?.?),
         //                 incx,
         //                 @ptrCast(result.ptr.?),
         //                 incy,
@@ -104,13 +104,13 @@ pub fn TensorOpBlas(comptime T: type) type {
         //     }
         // }
 
-        pub fn add(
+        pub fn addBlas(
             self: *const Self,
             other: *const Self,
             cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !Self {
-            return try self.tranform(
+            return try self.tranformBlas(
                 false,
                 other,
                 false,
@@ -122,13 +122,13 @@ pub fn TensorOpBlas(comptime T: type) type {
             );
         }
 
-        pub fn sub(
+        pub fn subBlas(
             self: *const Self,
             other: *const Self,
             cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !Self {
-            return try self.tranform(
+            return try self.tranformBlas(
                 false,
                 other,
                 false,
@@ -140,13 +140,13 @@ pub fn TensorOpBlas(comptime T: type) type {
             );
         }
 
-        pub fn scale(
+        pub fn scaleBlas(
             self: *const Self,
             factor: T,
             cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !Self {
-            return try self.tranform(
+            return try self.tranformBlas(
                 false,
                 null,
                 false,
@@ -216,7 +216,7 @@ pub fn TensorOpBlas(comptime T: type) type {
             };
         }
 
-        pub fn matmulTransposed(
+        pub fn matmulTransposedBlas(
             self: *const Self,
             self_transpose: bool,
             other_tensor: anytype,
@@ -343,7 +343,7 @@ pub fn TensorOpBlas(comptime T: type) type {
                 cuda_context.cublaslt_handle,
                 matmul_desc,
                 &alpha,
-                self.ptr,
+                self.ptr.?,
                 self_layout,
                 other_tensor.ptr,
                 other_layout,
@@ -361,7 +361,7 @@ pub fn TensorOpBlas(comptime T: type) type {
             return out_tensor;
         }
 
-        pub fn matmul(
+        pub fn matmulBlas(
             self: *const Self,
             self_transpose: bool,
             other_tensor: anytype,
@@ -378,7 +378,7 @@ pub fn TensorOpBlas(comptime T: type) type {
             cuda_context: *const CudaContext,
             comptime OutType: type,
         ) !GPUTensor(OutType) {
-            var matmul_res = try self.matmulTransposed(
+            var matmul_res = try self.matmulTransposedBlas(
                 self_transpose,
                 other_tensor,
                 other_transpose,
@@ -395,10 +395,10 @@ pub fn TensorOpBlas(comptime T: type) type {
             );
             defer matmul_res.deinitAsync(stream);
 
-            return try matmul_res.transpose(cuda_context, stream);
+            return try matmul_res.transposeBlas(cuda_context, stream);
         }
 
-        pub fn tranformTransposed(
+        pub fn tranformTransposedBlas(
             self: *const Self,
             self_transpose: bool,
             other_tensor: anytype,
@@ -489,7 +489,7 @@ pub fn TensorOpBlas(comptime T: type) type {
                 cuda_context.cublaslt_handle,
                 transform_desc,
                 &alpha,
-                self.ptr,
+                self.ptr.?,
                 self_layout,
                 &beta,
                 if (@TypeOf(other_tensor) != @TypeOf(null)) other_tensor.ptr else null,
@@ -502,7 +502,7 @@ pub fn TensorOpBlas(comptime T: type) type {
             return out_tensor;
         }
 
-        pub fn tranform(
+        pub fn tranformBlas(
             self: *const Self,
             self_transpose: bool,
             other_tensor: anytype,
@@ -513,7 +513,7 @@ pub fn TensorOpBlas(comptime T: type) type {
             cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !Self {
-            var transform_t = try self.tranformTransposed(
+            var transform_t = try self.tranformTransposedBlas(
                 self_transpose,
                 other_tensor,
                 other_transpose,
@@ -525,15 +525,15 @@ pub fn TensorOpBlas(comptime T: type) type {
             );
             defer transform_t.deinitAsync(stream);
 
-            return try transform_t.transpose(cuda_context, stream);
+            return try transform_t.transposeBlas(cuda_context, stream);
         }
 
-        pub fn transpose(
+        pub fn transposeBlas(
             self: *const Self,
             cuda_context: *const CudaContext,
             stream: *const Stream,
         ) !Self {
-            return try self.tranformTransposed(
+            return try self.tranformTransposedBlas(
                 false,
                 null,
                 false,

@@ -13,16 +13,16 @@ pub fn TensorOpElemwise(comptime T: type) type {
         pub fn add(self: *Self, other: *const Self, stream: *const Stream) !void {
             switch (T) {
                 Bf16 => {
-                    try err.checkCuda(c.tomoAddB(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoAddB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoAddH(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoAddH(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoAddF(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoAddF(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoAddD(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoAddD(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -31,16 +31,16 @@ pub fn TensorOpElemwise(comptime T: type) type {
         pub fn sub(self: *Self, other: *const Self, stream: *const Stream) !void {
             switch (T) {
                 Bf16 => {
-                    try err.checkCuda(c.tomoSubB(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoSubB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoSubH(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoSubH(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoSubF(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoSubF(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoSubD(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoSubD(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -49,16 +49,16 @@ pub fn TensorOpElemwise(comptime T: type) type {
         pub fn product(self: *Self, other: *const Self, stream: *const Stream) !void {
             switch (T) {
                 Bf16 => {
-                    try err.checkCuda(c.tomoProductB(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoProductB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoProductH(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoProductH(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoProductF(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoProductF(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoProductD(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoProductD(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
             }
@@ -67,16 +67,16 @@ pub fn TensorOpElemwise(comptime T: type) type {
         pub fn divide(self: *Self, other: *const Self, stream: *const Stream) !void {
             switch (T) {
                 Bf16 => {
-                    try err.checkCuda(c.tomoDivideB(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoDivideB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoDivideH(@ptrCast(self.ptr), @ptrCast(other.ptr), self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoDivideH(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoDivideF(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoDivideF(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoDivideD(self.ptr, other.ptr, self.calcLen(), stream.stream));
+                    try err.checkCuda(c.tomoDivideD(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
             }

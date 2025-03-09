@@ -21,7 +21,7 @@ pub fn TensorOp(comptime T: type) type {
         pub usingnamespace TensorOpReduction(T);
         pub usingnamespace TensorAlgorithm(T);
         pub usingnamespace TensorOpCast(T);
-        // pub usingnamespace TensorOpBlas(T);
+        pub usingnamespace TensorOpBlas(T);
         pub usingnamespace TensorOpElemwise(T);
         pub usingnamespace TensorOpBroadCast(T);
         pub usingnamespace TensorOpLinear(T);

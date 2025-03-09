@@ -19,13 +19,13 @@ pub fn TensorOpCast(comptime T: type) type {
                 BF16 => {
                     switch (U) {
                         f16 => {
-                            try err.checkCuda(c.tomoBtoH(@ptrCast(self.ptr), self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                            try err.checkCuda(c.tomoBtoH(@ptrCast(self.ptr.?), self.calcLen(), stream.stream, @ptrCast(res.ptr)));
                         },
                         f32 => {
-                            try err.checkCuda(c.tomoBtoF(@ptrCast(self.ptr), self.calcLen(), stream.stream, res.ptr));
+                            try err.checkCuda(c.tomoBtoF(@ptrCast(self.ptr.?), self.calcLen(), stream.stream, res.ptr));
                         },
                         f64 => {
-                            try err.checkCuda(c.tomoBtoD(@ptrCast(self.ptr), self.calcLen(), stream.stream, res.ptr));
+                            try err.checkCuda(c.tomoBtoD(@ptrCast(self.ptr.?), self.calcLen(), stream.stream, res.ptr));
                         },
                         else => unreachable,
                     }
@@ -33,13 +33,13 @@ pub fn TensorOpCast(comptime T: type) type {
                 f16 => {
                     switch (U) {
                         BF16 => {
-                            try err.checkCuda(c.tomoHtoB(@ptrCast(self.ptr), self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                            try err.checkCuda(c.tomoHtoB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream, @ptrCast(res.ptr)));
                         },
                         f32 => {
-                            try err.checkCuda(c.tomoHtoF(@ptrCast(self.ptr), self.calcLen(), stream.stream, res.ptr));
+                            try err.checkCuda(c.tomoHtoF(@ptrCast(self.ptr.?), self.calcLen(), stream.stream, res.ptr));
                         },
                         f64 => {
-                            try err.checkCuda(c.tomoHtoD(@ptrCast(self.ptr), self.calcLen(), stream.stream, res.ptr));
+                            try err.checkCuda(c.tomoHtoD(@ptrCast(self.ptr.?), self.calcLen(), stream.stream, res.ptr));
                         },
                         else => unreachable,
                     }
@@ -47,13 +47,13 @@ pub fn TensorOpCast(comptime T: type) type {
                 f32 => {
                     switch (U) {
                         BF16 => {
-                            try err.checkCuda(c.tomoFtoB(self.ptr, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                            try err.checkCuda(c.tomoFtoB(self.ptr.?, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
                         },
                         f16 => {
-                            try err.checkCuda(c.tomoFtoH(self.ptr, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                            try err.checkCuda(c.tomoFtoH(self.ptr.?, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
                         },
                         f64 => {
-                            try err.checkCuda(c.tomoFtoD(self.ptr, self.calcLen(), stream.stream, res.ptr));
+                            try err.checkCuda(c.tomoFtoD(self.ptr.?, self.calcLen(), stream.stream, res.ptr));
                         },
                         else => unreachable,
                     }
@@ -61,13 +61,13 @@ pub fn TensorOpCast(comptime T: type) type {
                 f64 => {
                     switch (U) {
                         BF16 => {
-                            try err.checkCuda(c.tomoDtoB(self.ptr, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                            try err.checkCuda(c.tomoDtoB(self.ptr.?, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
                         },
                         f16 => {
-                            try err.checkCuda(c.tomoDtoH(self.ptr, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                            try err.checkCuda(c.tomoDtoH(self.ptr.?, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
                         },
                         f32 => {
-                            try err.checkCuda(c.tomoDtoF(self.ptr, self.calcLen(), stream.stream, res.ptr));
+                            try err.checkCuda(c.tomoDtoF(self.ptr.?, self.calcLen(), stream.stream, res.ptr));
                         },
                         else => unreachable,
                     }
