@@ -15,6 +15,10 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             new_shape: []const usize,
             stream: *const Stream,
         ) !GPUTensor(T) {
+            if (std.mem.eql(usize, self.base.getShapeConst(), new_shape)) {
+                return self.cloneAsync(stream);
+            }
+
             for (self.base.getShapeConst(), new_shape) |in_dim, out_dim| {
                 if (out_dim % in_dim != 0) {
                     return error.InvalidBroadcast;
@@ -99,10 +103,10 @@ pub fn TensorOpBroadCast(comptime T: type) type {
         pub fn computeOutShape(
             allocator: std.mem.Allocator,
             in_shape: []const usize,
-            axes: []const isize,
+            axes: ?[]const isize,
             keepdims: bool,
         ) !std.meta.Tuple(&.{ []usize, []usize }) {
-            if (std.mem.eql(isize, axes, &.{})) {
+            if (axes == null) {
                 const axes_all = try allocator.alloc(isize, in_shape.len);
                 defer allocator.free(axes_all);
 
@@ -118,7 +122,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             defer allocator.free(to_sum);
             @memset(to_sum, false);
             // Mark each axis specified in `axes`.
-            for (axes) |axis| {
+            for (axes.?) |axis| {
                 var a = axis;
                 if (a < 0) {
                     a += @intCast(in_shape.len);
@@ -157,7 +161,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
         pub fn sum(
             self: *const Self,
             allocator: std.mem.Allocator,
-            axes: []const isize,
+            axes: ?[]const isize,
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(T) {

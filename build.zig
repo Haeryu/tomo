@@ -27,11 +27,11 @@ pub fn build(b: *std.Build) void {
     lib_mod.linkSystemLibrary("cublas64_12", .{});
     lib_mod.linkSystemLibrary("cublasLt64_12", .{});
     lib_mod.linkSystemLibrary("curand64_10", .{});
-    lib_mod.linkSystemLibrary("cufft64_11", .{});
-    lib_mod.linkSystemLibrary("cudnn64_9", .{});
-    lib_mod.linkSystemLibrary("cusolver64_11", .{});
-    lib_mod.linkSystemLibrary("cusolverMg64_11", .{});
-    lib_mod.linkSystemLibrary("cusparse64_12", .{});
+    // lib_mod.linkSystemLibrary("cufft64_11", .{});
+    // lib_mod.linkSystemLibrary("cudnn64_9", .{});
+    // lib_mod.linkSystemLibrary("cusolver64_11", .{});
+    // lib_mod.linkSystemLibrary("cusolverMg64_11", .{});
+    // lib_mod.linkSystemLibrary("cusparse64_12", .{});
     lib_mod.linkSystemLibrary("tomo_kernels", .{});
     lib_mod.addObjectFile(b.path("src/kernel/out/tomo_kernels.lib"));
 

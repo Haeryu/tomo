@@ -11,6 +11,7 @@ pub fn TensorOpElemwise(comptime T: type) type {
         const Self = GPUTensor(T);
 
         pub fn add(self: *Self, other: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), other.base.getShapeConst()));
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoAddB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
@@ -29,6 +30,7 @@ pub fn TensorOpElemwise(comptime T: type) type {
         }
 
         pub fn sub(self: *Self, other: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), other.base.getShapeConst()));
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoSubB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
@@ -47,6 +49,7 @@ pub fn TensorOpElemwise(comptime T: type) type {
         }
 
         pub fn product(self: *Self, other: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), other.base.getShapeConst()));
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoProductB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
@@ -65,6 +68,7 @@ pub fn TensorOpElemwise(comptime T: type) type {
         }
 
         pub fn divide(self: *Self, other: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), other.base.getShapeConst()));
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoDivideB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));

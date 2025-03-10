@@ -36,7 +36,7 @@ pub fn main() !void {
     var sum = try device_tensor1.sum(allocator, &.{1}, false, &stream);
     defer sum.deinitAsync(&stream);
 
-    var sum_t = try sum.transpose(&cuda_context, &stream);
+    var sum_t = try sum.transpose(&stream);
     defer sum_t.deinitAsync(&stream);
 
     var host = try device_tensor1.toHost(allocator, &stream);

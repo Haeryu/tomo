@@ -431,13 +431,9 @@ pub fn GPUTensor(comptime T: type) type {
 
         pub fn reshape(
             self: *const Self,
-            comptime new_rank: comptime_int,
-            new_tensor: *GPUTensor(T, new_rank),
             new_shape: []const usize,
             stream: *const Stream,
-        ) !void {
-            std.debug.assert(new_tensor.ptr == null);
-
+        ) !Self {
             const old_size = self.base.countElem();
             var new_size: usize = 1;
             for (new_shape) |dim| {
@@ -446,10 +442,12 @@ pub fn GPUTensor(comptime T: type) type {
 
             if (old_size != new_size) return error.InvalidReshape;
 
-            try new_tensor.initAsync(new_shape, stream);
+            var new_tensor: GPUTensor(T) = try .initAsync(new_shape, stream);
             errdefer new_tensor.deinitAsync(stream);
 
-            try new_tensor.writeAsync(self.ptr, self.calcLen(), 0, stream);
+            try new_tensor.writeAsync(self.ptr.?, self.calcLen(), 0, stream);
+
+            return new_tensor.move();
         }
 
         // TODO
