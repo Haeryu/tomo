@@ -9,11 +9,11 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // Create a CUDA stream
-    var stream = try tm.stream.Stream.create();
+    var stream: tm.stream.Stream = try .create();
     defer stream.destroy();
 
     // Initialize CUDA context
-    var cuda_context = try tm.cuda_context.CudaContext.init();
+    var cuda_context: tm.cuda_context.CudaContext = try .init();
     defer cuda_context.deinit();
 
     // Define the floating-point type
@@ -24,7 +24,7 @@ pub fn main() !void {
     const cols = 4;
 
     // Create a 3x4 GPUTensor and initialize it with values 1 to 12
-    var device_tensor = try tm.tensor.GPUTensor(F).initAsync(&.{ rows, cols }, &stream);
+    var device_tensor: tm.tensor.GPUTensor(F) = try .initAsync(&.{ rows, cols }, &stream);
     defer device_tensor.deinitAsync(&stream);
 
     // Write test values to the tensor
@@ -47,7 +47,7 @@ pub fn main() !void {
     defer host_subtensor.deinit(allocator);
 
     // Create a gradient tensor (gy) with the same shape as the subtensor, filled with ones
-    var gy = try tm.tensor.GPUTensor(F).initAsync(subtensor.base.getShapeConst(), &stream);
+    var gy: tm.tensor.GPUTensor(F) = try .initAsync(subtensor.base.getShapeConst(), &stream);
     defer gy.deinitAsync(&stream);
     try gy.fill(1.0, &stream);
 

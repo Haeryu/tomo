@@ -164,8 +164,8 @@ cudaError_t tomoGetItem(
         return err;
     }
 
-    const int threads = 256;
-    const int blocks = (out_size + threads - 1) / threads;
+    int const threads = 256;
+    int const blocks = (int)(out_size + threads - 1) / threads;
     tomoGetItemKernel<T><<<blocks, threads, 0, stream>>>(
         x, y, d_in_shape, d_out_shape, d_in_strides, d_out_strides, d_starts, d_steps, nd, out_size);
 
@@ -264,7 +264,7 @@ cudaError_t tomoGetItemGrad(
     }
 
     int const threads = 256;
-    int const blocks = (out_size + threads - 1) / threads;
+    int const blocks = (int)(out_size + threads - 1) / threads;
     tomoGetItemGradKernel<T><<<blocks, threads, 0, stream>>>(
         gy, gx, d_in_shape, d_out_shape, d_in_strides, d_out_strides, d_starts, d_steps, nd, out_size);
 
@@ -280,6 +280,52 @@ cudaError_t tomoGetItemGrad(
     cudaFreeAsync(d_out_strides, stream);
     cudaFreeAsync(d_starts, stream);
     cudaFreeAsync(d_steps, stream);
+
+    return cudaSuccess;
+}
+
+template <typename T>
+__global__ void tomoOneHotKernel(
+    size_t const *indices, // Input: 1D array of class indices [batch_size]
+    T *one_hot,            // Output: 2D one-hot tensor [batch_size, num_classes]
+    size_t batch_size,
+    size_t num_classes)
+{
+    size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= batch_size)
+        return;
+
+    // Get the class index for this batch item
+    size_t class_idx = indices[idx];
+    if (class_idx >= num_classes)
+        return; // Safety check
+
+    // Set the corresponding element to 1
+    one_hot[idx * num_classes + class_idx] = static_cast<T>(1.0);
+}
+
+template <typename T>
+cudaError_t tomoOneHot(
+    size_t const *indices,
+    T *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream)
+{
+    // Zero-initialize the output tensor
+    cudaError_t err = cudaMemsetAsync(one_hot, 0, batch_size * num_classes * sizeof(T), stream);
+    if (err != cudaSuccess)
+        return err;
+
+    // Launch the kernel
+    int const threads = 256;
+    int const blocks = (int)(batch_size + threads - 1) / threads;
+    tomoOneHotKernel<T><<<blocks, threads, 0, stream>>>(
+        indices, one_hot, batch_size, num_classes);
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess)
+        return err;
 
     return cudaSuccess;
 }
@@ -484,4 +530,45 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemGradD(
         steps, steps_len,
         nd, out_size,
         stream);
+}
+
+// Wrappers for specific types
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotH(
+    size_t const *indices,
+    __half_raw *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream)
+{
+    return tomoOneHot<__half_raw>(indices, one_hot, batch_size, num_classes, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotB(
+    size_t const *indices,
+    __nv_bfloat16_raw *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream)
+{
+    return tomoOneHot<__nv_bfloat16_raw>(indices, one_hot, batch_size, num_classes, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotF(
+    size_t const *indices,
+    float *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream)
+{
+    return tomoOneHot<float>(indices, one_hot, batch_size, num_classes, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotD(
+    size_t const *indices,
+    double *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream)
+{
+    return tomoOneHot<double>(indices, one_hot, batch_size, num_classes, stream);
 }

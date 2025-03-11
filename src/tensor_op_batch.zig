@@ -228,5 +228,24 @@ pub fn TensorOpBatch(comptime T: type) type {
 
             return gx.move();
         }
+
+        pub fn toOneHot(indices: *const GPUTensor(usize), num_classes: usize, stream: *const Stream) !Self {
+            if (indices.base.rank != 1) return error.InvalidIndicesRank;
+
+            const batch_size = indices.base.getShapeConst()[0];
+
+            var one_hot = try Self.initAsync(&[_]usize{ batch_size, num_classes }, stream);
+            errdefer one_hot.deinitAsync(stream);
+
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoOneHotB(indices.ptr.?, @ptrCast(one_hot.ptr.?), batch_size, num_classes, stream.stream)),
+                f16 => try err.checkCuda(c.tomoOneHotH(indices.ptr.?, @ptrCast(one_hot.ptr.?), batch_size, num_classes, stream.stream)),
+                f32 => try err.checkCuda(c.tomoOneHotF(one_hot.ptr.?, indices.ptr.?, batch_size, num_classes, stream.stream)),
+                f64 => try err.checkCuda(c.tomoOneHotD(indices.ptr.?, one_hot.ptr.?, batch_size, num_classes, stream.stream)),
+                else => unreachable,
+            }
+
+            return one_hot.move();
+        }
     };
 }

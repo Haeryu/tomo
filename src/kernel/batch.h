@@ -112,3 +112,30 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemGradD(
     size_t const *steps, size_t steps_len,
     size_t nd, size_t out_size,
     cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotH(
+    size_t const *indices,
+    __half_raw *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotB(
+    size_t const *indices,
+    __nv_bfloat16_raw *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotF(
+    size_t const *indices,
+    float *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotD(
+    size_t const *indices,
+    double *one_hot,
+    size_t batch_size,
+    size_t num_classes,
+    cudaStream_t stream);

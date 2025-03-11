@@ -324,6 +324,12 @@ pub fn GPUTensor(comptime T: type) type {
             stop: ?isize = null,
             step: ?isize = null,
 
+            pub const all: Slice = .{
+                .start = 0,
+                .stop = null,
+                .step = 1,
+            };
+
             pub fn sliceLength(self: *const Slice, dim: usize) usize {
                 const step = self.step orelse 1;
                 if (step <= 0) return 0;

@@ -11354,6 +11354,10 @@ pub extern fn tomoGetItemGradH(gy: [*c]const __half_raw, gx: [*c]__half_raw, in_
 pub extern fn tomoGetItemGradB(gy: [*c]const __nv_bfloat16_raw, gx: [*c]__nv_bfloat16_raw, in_shape: [*c]const usize, in_shape_len: usize, out_shape: [*c]const usize, out_shape_len: usize, in_strides: [*c]const usize, in_strides_len: usize, out_strides: [*c]const usize, out_strides_len: usize, starts: [*c]const usize, starts_len: usize, steps: [*c]const usize, steps_len: usize, nd: usize, out_size: usize, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoGetItemGradF(gy: [*c]const f32, gx: [*c]f32, in_shape: [*c]const usize, in_shape_len: usize, out_shape: [*c]const usize, out_shape_len: usize, in_strides: [*c]const usize, in_strides_len: usize, out_strides: [*c]const usize, out_strides_len: usize, starts: [*c]const usize, starts_len: usize, steps: [*c]const usize, steps_len: usize, nd: usize, out_size: usize, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoGetItemGradD(gy: [*c]const f64, gx: [*c]f64, in_shape: [*c]const usize, in_shape_len: usize, out_shape: [*c]const usize, out_shape_len: usize, in_strides: [*c]const usize, in_strides_len: usize, out_strides: [*c]const usize, out_strides_len: usize, starts: [*c]const usize, starts_len: usize, steps: [*c]const usize, steps_len: usize, nd: usize, out_size: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoOneHotH(indices: [*c]const usize, one_hot: [*c]__half_raw, batch_size: usize, num_classes: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoOneHotB(indices: [*c]const usize, one_hot: [*c]__nv_bfloat16_raw, batch_size: usize, num_classes: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoOneHotF(indices: [*c]const usize, one_hot: [*c]f32, batch_size: usize, num_classes: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoOneHotD(indices: [*c]const usize, one_hot: [*c]f64, batch_size: usize, num_classes: usize, stream: cudaStream_t) cudaError_t;
 pub const __llvm__ = @as(c_int, 1);
 pub const __clang__ = @as(c_int, 1);
 pub const __clang_major__ = @as(c_int, 19);
