@@ -9,3 +9,4 @@
 #include "bf16_op.h"
 #include "elemwise.h"
 #include "tensor_ops.h"
+#include "batch.h"

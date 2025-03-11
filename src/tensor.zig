@@ -319,6 +319,47 @@ pub fn GPUTensor(comptime T: type) type {
         pub const Base = TensorBase(max_rank);
         pub const Elem = T;
 
+        pub const Slice = struct {
+            start: ?isize = null,
+            stop: ?isize = null,
+            step: ?isize = null,
+
+            pub fn sliceLength(self: *const Slice, dim: usize) usize {
+                const step = self.step orelse 1;
+                if (step <= 0) return 0;
+
+                var start = self.start orelse 0;
+                var stop = self.stop orelse @as(isize, @intCast(dim));
+                const dim_signed: isize = @intCast(dim);
+
+                // Handle negative indices
+                if (start < 0) start += dim_signed;
+                if (stop < 0) stop += dim_signed;
+
+                // Clamp to bounds
+
+                start = std.math.clamp(start, 0, dim_signed);
+                stop = std.math.clamp(stop, 0, dim_signed);
+
+                if (start >= stop) return 0;
+
+                // Compute length: number of steps from start to stop
+                return @as(usize, @intCast((stop - start + step - 1) / step));
+            }
+
+            pub fn computeOutputShapeAlloc(allocator: std.mem.Allocator, shape: []const usize, slices: []const Slice) ![]usize {
+                if (shape.len != slices.len) return error.InvalidSlices;
+
+                var out_shape = try allocator.alloc(usize, shape.len);
+                errdefer allocator.free(out_shape);
+
+                for (shape, slices, 0..) |dim, s, i| {
+                    out_shape[i] = sliceLength(dim, s);
+                }
+                return out_shape;
+            }
+        };
+
         pub fn move(self: *Self) Self {
             const ptr = self.ptr;
             self.ptr = null;

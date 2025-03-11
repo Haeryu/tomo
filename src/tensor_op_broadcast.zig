@@ -342,7 +342,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             var out = try GPUTensor(T).initAsync(new_shape_keepdims, stream);
             errdefer out.deinitAsync(stream);
             // For max reduction, initialize with negative infinity.
-            try out.fill(if (T == Bf16) Bf16.fromF32(-std.math.inf(f32)) else if (T == f16) -std.math.inf(f32) else -std.math.inf(f32), stream);
+            // try out.fill(if (T == Bf16) Bf16.fromF32(-std.math.inf(f32)) else if (T == f16) -std.math.inf(f32) else -std.math.inf(f32), stream);
 
             switch (T) {
                 Bf16 => {
@@ -442,7 +442,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             var out = try GPUTensor(T).initAsync(new_shape_keepdims, stream);
             errdefer out.deinitAsync(stream);
             // For min reduction, initialize with positive infinity.
-            try out.fill(if (T == Bf16) Bf16.fromF32(std.math.inf(f32)) else if (T == f16) std.math.inf(f32) else std.math.inf(f32), stream);
+            //   try out.fill(if (T == Bf16) Bf16.fromF32(std.math.inf(f32)) else if (T == f16) std.math.inf(f32) else std.math.inf(f32), stream);
 
             switch (T) {
                 Bf16 => {
