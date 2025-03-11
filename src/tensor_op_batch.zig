@@ -112,6 +112,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     out_size,
                     stream.stream,
                 )),
+                else => unreachable,
             }
 
             return items.move();
@@ -222,6 +223,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     out_size,
                     stream.stream,
                 )),
+                else => unreachable,
             }
 
             return gx.move();

@@ -344,7 +344,7 @@ pub fn GPUTensor(comptime T: type) type {
                 if (start >= stop) return 0;
 
                 // Compute length: number of steps from start to stop
-                return @as(usize, @intCast((stop - start + step - 1) / step));
+                return @as(usize, @intCast(@divTrunc(stop - start + step - 1, step)));
             }
 
             pub fn computeOutputShapeAlloc(allocator: std.mem.Allocator, shape: []const usize, slices: []const Slice) ![]usize {
@@ -354,7 +354,7 @@ pub fn GPUTensor(comptime T: type) type {
                 errdefer allocator.free(out_shape);
 
                 for (shape, slices, 0..) |dim, s, i| {
-                    out_shape[i] = sliceLength(dim, s);
+                    out_shape[i] = s.sliceLength(dim);
                 }
                 return out_shape;
             }
