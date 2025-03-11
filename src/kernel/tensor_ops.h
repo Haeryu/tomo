@@ -161,3 +161,108 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeB(__nv_bfloat16_raw const *A
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeF(float const *A, size_t M, size_t N, float *C, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeD(double const *A, size_t M, size_t N, double *C, cudaStream_t stream);
+
+// ----- Max wrappers -----
+
+// Half
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToH(
+    __half_raw const *d_in,
+    __half_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+
+// Bfloat16
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToB(
+    __nv_bfloat16_raw const *d_in,
+    __nv_bfloat16_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+
+// Float
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToF(
+    float const *d_in,
+    float *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+
+// Double
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToD(
+    double const *d_in,
+    double *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+
+// ----- Min wrappers -----
+
+// Half
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToH(
+    __half_raw const *d_in,
+    __half_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+// Bfloat16
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToB(
+    __nv_bfloat16_raw const *d_in,
+    __nv_bfloat16_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+// Float
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToF(
+    float const *d_in,
+    float *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+// Double
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToD(
+    double const *d_in,
+    double *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);

@@ -54,49 +54,49 @@ pub fn TensorOpReduction(comptime T: type) type {
             }
         }
 
-        pub fn min(
-            self: *Self,
-            stream: *const Stream,
-            result: *T,
-        ) !void {
-            switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoMinB(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
-                },
-                f16 => {
-                    try err.checkCuda(c.tomoMinH(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
-                },
-                f32 => {
-                    try err.checkCuda(c.tomoMinF(self.ptr.?, self.calcLen(), result, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoMinD(self.ptr.?, self.calcLen(), result, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
+        // pub fn min(
+        //     self: *Self,
+        //     stream: *const Stream,
+        //     result: *T,
+        // ) !void {
+        //     switch (T) {
+        //         Bf16 => {
+        //             try err.checkCuda(c.tomoMinB(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
+        //         },
+        //         f16 => {
+        //             try err.checkCuda(c.tomoMinH(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
+        //         },
+        //         f32 => {
+        //             try err.checkCuda(c.tomoMinF(self.ptr.?, self.calcLen(), result, stream.stream));
+        //         },
+        //         f64 => {
+        //             try err.checkCuda(c.tomoMinD(self.ptr.?, self.calcLen(), result, stream.stream));
+        //         },
+        //         else => unreachable,
+        //     }
+        // }
 
-        pub fn max(
-            self: *Self,
-            stream: *const Stream,
-            result: *T,
-        ) !void {
-            switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoMaxB(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
-                },
-                f16 => {
-                    try err.checkCuda(c.tomoMaxH(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
-                },
-                f32 => {
-                    try err.checkCuda(c.tomoMaxF(self.ptr.?, self.calcLen(), result, stream.stream));
-                },
-                f64 => {
-                    try err.checkCuda(c.tomoMaxD(self.ptr.?, self.calcLen(), result, stream.stream));
-                },
-                else => unreachable,
-            }
-        }
+        // pub fn max(
+        //     self: *Self,
+        //     stream: *const Stream,
+        //     result: *T,
+        // ) !void {
+        //     switch (T) {
+        //         Bf16 => {
+        //             try err.checkCuda(c.tomoMaxB(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
+        //         },
+        //         f16 => {
+        //             try err.checkCuda(c.tomoMaxH(@ptrCast(self.ptr.?), self.calcLen(), @ptrCast(result), stream.stream));
+        //         },
+        //         f32 => {
+        //             try err.checkCuda(c.tomoMaxF(self.ptr.?, self.calcLen(), result, stream.stream));
+        //         },
+        //         f64 => {
+        //             try err.checkCuda(c.tomoMaxD(self.ptr.?, self.calcLen(), result, stream.stream));
+        //         },
+        //         else => unreachable,
+        //     }
+        // }
 
         pub fn l1Norm(
             self: *Self,

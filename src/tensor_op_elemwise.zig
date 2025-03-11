@@ -85,5 +85,62 @@ pub fn TensorOpElemwise(comptime T: type) type {
                 else => unreachable,
             }
         }
+
+        pub fn reluBackward(self: *Self, x: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), x.base.getShapeConst()));
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoReluBackwardB(@ptrCast(x.ptr.?), @ptrCast(self.ptr.?), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoReluBackwardH(@ptrCast(x.ptr.?), @ptrCast(self.ptr.?), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoReluBackwardF(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoReluBackwardD(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn leakyReluBackward(self: *Self, x: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), x.base.getShapeConst()));
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoLeakyReluBackwardB(@ptrCast(x.ptr.?), @ptrCast(self.ptr.?), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoLeakyReluBackwardH(@ptrCast(x.ptr.?), @ptrCast(self.ptr.?), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoLeakyReluBackwardF(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoLeakyReluBackwardD(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn geluBackward(self: *Self, x: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), x.base.getShapeConst()));
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoGeluBackwardB(@ptrCast(x.ptr.?), @ptrCast(self.ptr.?), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoGeluBackwardH(@ptrCast(x.ptr.?), @ptrCast(self.ptr.?), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoGeluBackwardF(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoGeluBackwardD(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
     };
 }

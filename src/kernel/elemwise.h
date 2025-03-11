@@ -16,7 +16,6 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSubB(__nv_bfloat16_raw *a, __nv_bfloa
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSubF(float *a, float const *b, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSubD(double *a, double const *b, size_t len, cudaStream_t stream);
 
-
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoProductH(__half_raw *a, __half_raw const *b, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoProductB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoProductF(float *a, float const *b, size_t len, cudaStream_t stream);
@@ -26,3 +25,42 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideH(__half_raw *a, __half_raw con
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideF(float *a, float const *b, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideD(double *a, double const *b, size_t len, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoReluBackwardH(
+    const __half_raw *x, __half_raw *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoReluBackwardB(
+    const __nv_bfloat16_raw *x, __nv_bfloat16_raw *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoReluBackwardF(
+    const float *x, float *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoReluBackwardD(
+    const double *x, double *grad,
+    size_t len, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLeakyReluBackwardH(
+    const __half_raw *x, __half_raw *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLeakyReluBackwardB(
+    const __nv_bfloat16_raw *x, __nv_bfloat16_raw *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLeakyReluBackwardF(
+    const float *x, float *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLeakyReluBackwardD(
+    const double *x, double *grad,
+    size_t len, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGeluBackwardH(
+    const __half_raw *x, __half_raw *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGeluBackwardB(
+    const __nv_bfloat16_raw *x, __nv_bfloat16_raw *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGeluBackwardF(
+    const float *x, float *grad,
+    size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGeluBackwardD(
+    const double *x, double *grad,
+    size_t len, cudaStream_t stream);

@@ -3,6 +3,9 @@
 
 #include "tensor_ops.h"
 
+#include <limits>
+#include <algorithm>
+
 #include <thrust/device_vector.h>
 #include <thrust/transform.h>
 #include <thrust/reduce.h>
@@ -783,6 +786,289 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBroadcastToD(
         stream);
 }
 
+template <typename T>
+__global__ void tomoMaxToKernel(
+    const T *d_in, T *d_out,
+    const size_t *d_in_shape, const size_t *d_out_shape,
+    const size_t *d_in_strides, const size_t *d_out_strides,
+    size_t in_size, size_t out_size, size_t nd)
+{
+    size_t out_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (out_idx >= out_size)
+        return;
+
+    // Unravel out_idx to out_coords
+    size_t out_coords[MAX_ND];
+    size_t tmp = out_idx;
+    for (ptrdiff_t d = nd - 1; d >= 0; --d)
+    {
+        size_t dim_size = d_out_shape[d];
+        out_coords[d] = tmp % dim_size;
+        tmp /= dim_size;
+    }
+
+    // Initialize max_val to the smallest possible value for type T
+    T max_val = std::numeric_limits<T>::lowest();
+    size_t in_coords[MAX_ND];
+    for (size_t in_idx = 0; in_idx < in_size; ++in_idx)
+    {
+        size_t unravel = in_idx;
+        bool matches = true;
+        for (ptrdiff_t d = nd - 1; d >= 0; --d)
+        {
+            size_t dim_size = d_in_shape[d];
+            in_coords[d] = unravel % dim_size;
+            unravel /= dim_size;
+            if (d_out_shape[d] != 1)
+            {
+                size_t out_c = out_coords[d];
+                size_t in_c = (d_in_shape[d] == 1) ? 0 : in_coords[d];
+                if (out_c != in_c)
+                {
+                    matches = false;
+                    break;
+                }
+            }
+        }
+        if (matches)
+        {
+            size_t in_offset = 0;
+            for (size_t d = 0; d < nd; ++d)
+            {
+                in_offset += in_coords[d] * d_in_strides[d];
+            }
+            max_val = std::max(max_val, d_in[in_offset]);
+        }
+    }
+    d_out[out_idx] = max_val;
+}
+
+template <typename T>
+cudaError_t tomoMaxTo(
+    const T *d_in, T *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size, size_t out_size, size_t nd,
+    cudaStream_t stream)
+{
+    // Validate inputs
+    if (out_strides_len != nd)
+        return cudaErrorInvalidValue;
+
+    // Device buffers
+    size_t *d_in_shape, *d_out_shape, *d_in_strides, *d_out_strides;
+    CHECK_CUDA(cudaMallocAsync(&d_in_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_out_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_in_strides, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_out_strides, nd * sizeof(size_t), stream));
+
+    CHECK_CUDA(cudaMemcpyAsync(d_in_shape, in_shape, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(cudaMemcpyAsync(d_out_shape, out_shape, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(cudaMemcpyAsync(d_in_strides, in_strides, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(cudaMemcpyAsync(d_out_strides, out_strides, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+
+    // Launch kernel
+    const int threads = 256;
+    const int blocks = ((int)out_size + threads - 1) / threads;
+    tomoMaxToKernel<<<blocks, threads, 0, stream>>>(
+        d_in, d_out, d_in_shape, d_out_shape, d_in_strides, d_out_strides,
+        in_size, out_size, nd);
+
+    CHECK_CUDA(cudaGetLastError());
+
+    CHECK_CUDA(cudaFreeAsync(d_in_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_out_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_in_strides, stream));
+    CHECK_CUDA(cudaFreeAsync(d_out_strides, stream));
+    return cudaSuccess;
+}
+
+
+
+template <typename T>
+cudaError_t tomoMaxToErr(const T *d_in,
+                         T *d_out,
+                         size_t const *in_shape,
+                         size_t in_shape_len,
+                         size_t const *out_shape,
+                         size_t out_shape_len,
+                         size_t const *in_strides,
+                         size_t in_strides_len,
+                         size_t const *out_strides,
+                         size_t out_strides_len,
+                         size_t in_size,
+                         size_t out_size,
+                         size_t nd,
+                         cudaStream_t stream)
+{
+
+    try
+    {
+        tomoMaxTo<T>(d_in, d_out, in_shape, in_shape_len, out_shape, out_shape_len, in_strides, in_strides_len, out_strides, out_strides_len, in_size, out_size, nd, stream);
+    }
+    catch (const thrust::system_error &e)
+    {
+        if (e.code().category() == thrust::cuda_category())
+        {
+            return static_cast<cudaError_t>(e.code().value());
+        }
+        else
+        {
+            return cudaErrorUnknown;
+        }
+    }
+    catch (...)
+    {
+        return cudaErrorUnknown;
+    }
+
+    return cudaSuccess;
+}
+
+
+template <typename T>
+__global__ void tomoMinToKernel(
+    const T *d_in, T *d_out,
+    const size_t *d_in_shape, const size_t *d_out_shape,
+    const size_t *d_in_strides, const size_t *d_out_strides,
+    size_t in_size, size_t out_size, size_t nd)
+{
+    size_t out_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (out_idx >= out_size)
+        return;
+
+    // Unravel out_idx to out_coords
+    size_t out_coords[MAX_ND];
+    size_t tmp = out_idx;
+    for (ptrdiff_t d = nd - 1; d >= 0; --d)
+    {
+        size_t dim_size = d_out_shape[d];
+        out_coords[d] = tmp % dim_size;
+        tmp /= dim_size;
+    }
+
+    // Initialize min_val to the largest possible value for type T
+    T min_val = std::numeric_limits<T>::max();
+    size_t in_coords[MAX_ND];
+    for (size_t in_idx = 0; in_idx < in_size; ++in_idx)
+    {
+        size_t unravel = in_idx;
+        bool matches = true;
+        for (ptrdiff_t d = nd - 1; d >= 0; --d)
+        {
+            size_t dim_size = d_in_shape[d];
+            in_coords[d] = unravel % dim_size;
+            unravel /= dim_size;
+            if (d_out_shape[d] != 1)
+            {
+                size_t out_c = out_coords[d];
+                size_t in_c = (d_in_shape[d] == 1) ? 0 : in_coords[d];
+                if (out_c != in_c)
+                {
+                    matches = false;
+                    break;
+                }
+            }
+        }
+        if (matches)
+        {
+            size_t in_offset = 0;
+            for (size_t d = 0; d < nd; ++d)
+            {
+                in_offset += in_coords[d] * d_in_strides[d];
+            }
+            min_val = std::min(min_val, d_in[in_offset]);
+        }
+    }
+    d_out[out_idx] = min_val;
+}
+
+template <typename T>
+cudaError_t tomoMinTo(
+    const T *d_in, T *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size, size_t out_size, size_t nd,
+    cudaStream_t stream)
+{
+    // Validate inputs
+    if (out_strides_len != nd)
+        return cudaErrorInvalidValue;
+
+    // Device buffers
+    size_t *d_in_shape, *d_out_shape, *d_in_strides, *d_out_strides;
+    CHECK_CUDA(cudaMallocAsync(&d_in_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_out_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_in_strides, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_out_strides, nd * sizeof(size_t), stream));
+
+    CHECK_CUDA(cudaMemcpyAsync(d_in_shape, in_shape, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(cudaMemcpyAsync(d_out_shape, out_shape, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(cudaMemcpyAsync(d_in_strides, in_strides, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(cudaMemcpyAsync(d_out_strides, out_strides, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream));
+
+    // Launch kernel
+    const int threads = 256;
+    const int blocks = ((int)out_size + threads - 1) / threads;
+    tomoMinToKernel<<<blocks, threads, 0, stream>>>(
+        d_in, d_out, d_in_shape, d_out_shape, d_in_strides, d_out_strides,
+        in_size, out_size, nd);
+
+    CHECK_CUDA(cudaGetLastError());
+
+    CHECK_CUDA(cudaFreeAsync(d_in_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_out_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_in_strides, stream));
+    CHECK_CUDA(cudaFreeAsync(d_out_strides, stream));
+    return cudaSuccess;
+}
+
+
+template <typename T>
+cudaError_t tomoMinToErr(const T *d_in,
+                         T *d_out,
+                         size_t const *in_shape,
+                         size_t in_shape_len,
+                         size_t const *out_shape,
+                         size_t out_shape_len,
+                         size_t const *in_strides,
+                         size_t in_strides_len,
+                         size_t const *out_strides,
+                         size_t out_strides_len,
+                         size_t in_size,
+                         size_t out_size,
+                         size_t nd,
+                         cudaStream_t stream)
+{
+
+    try
+    {
+        tomoMinTo<T>(d_in, d_out, in_shape, in_shape_len, out_shape, out_shape_len, in_strides, in_strides_len, out_strides, out_strides_len, in_size, out_size, nd, stream);
+    }
+    catch (const thrust::system_error &e)
+    {
+        if (e.code().category() == thrust::cuda_category())
+        {
+            return static_cast<cudaError_t>(e.code().value());
+        }
+        else
+        {
+            return cudaErrorUnknown;
+        }
+    }
+    catch (...)
+    {
+        return cudaErrorUnknown;
+    }
+
+    return cudaSuccess;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // SUM-TO WRAPPERS
 ////////////////////////////////////////////////////////////////////////////////
@@ -966,3 +1252,209 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeD(double const*A, size_t M, 
         N,
         C, stream);
 }
+
+// ----- Max wrappers -----
+
+// Half
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToH(
+    __half_raw const *d_in,
+    __half_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMaxToErr<__half_raw>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+// Bfloat16
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToB(
+    __nv_bfloat16_raw const *d_in,
+    __nv_bfloat16_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMaxToErr<__nv_bfloat16_raw>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+// Float
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToF(
+    float const *d_in,
+    float *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMaxToErr<float>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+// Double
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToD(
+    double const *d_in,
+    double *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMaxToErr<double>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+
+// ----- Min wrappers -----
+
+// Half
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToH(
+    __half_raw const *d_in,
+    __half_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMinToErr<__half_raw>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+// Bfloat16
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToB(
+    __nv_bfloat16_raw const *d_in,
+    __nv_bfloat16_raw *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMinToErr<__nv_bfloat16_raw>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+// Float
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToF(
+    float const *d_in,
+    float *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMinToErr<float>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+// Double
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToD(
+    double const *d_in,
+    double *d_out,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
+    size_t const *out_strides, size_t out_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoMinToErr<double>(
+        d_in, d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        out_strides, out_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+

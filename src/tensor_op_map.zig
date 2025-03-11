@@ -613,33 +613,123 @@ pub fn TensorOpMap(comptime T: type) type {
             }
         }
 
-        pub fn softmax(
-            self: *Self,
-            stream: *const Stream,
-        ) !void {
+        // pub fn softmax(
+        //     self: *Self,
+        //     stream: *const Stream,
+        // ) !void {
+        //     switch (T) {
+        //         Bf16 => {
+        //             var max = Bf16.fromF32(0.0);
+        //             try self.max(stream, &max);
+        //             try stream.sync();
+        //             try self.shift(max.neg(), stream);
+        //             try self.exp(stream);
+        //             var sum = Bf16.fromF32(0.0);
+        //             try self.sumReduce(stream, &sum);
+        //             try stream.sync();
+        //             try self.scale(Bf16.fromF32(1.0).div(sum), stream);
+        //         },
+        //         else => {
+        //             var max: T = 0.0;
+        //             try self.max(stream, &max);
+        //             try stream.sync();
+        //             try self.shift(-max, stream);
+        //             try self.exp(stream);
+        //             var sum: T = 0.0;
+        //             try self.sumReduce(stream, &sum);
+        //             try stream.sync();
+        //             try self.scale(1.0 / sum, stream);
+        //         },
+        //     }
+        // }
+
+        pub fn gt(self: *Self, num: T, stream: *const Stream) !void {
             switch (T) {
                 Bf16 => {
-                    var max = Bf16.fromF32(0.0);
-                    try self.max(stream, &max);
-                    try stream.sync();
-                    try self.shift(max.neg(), stream);
-                    try self.exp(stream);
-                    var sum = Bf16.fromF32(0.0);
-                    try self.sumReduce(stream, &sum);
-                    try stream.sync();
-                    try self.scale(Bf16.fromF32(1.0).div(sum), stream);
+                    try err.checkCuda(c.tomoGtB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
                 },
-                else => {
-                    var max: T = 0.0;
-                    try self.max(stream, &max);
-                    try stream.sync();
-                    try self.shift(-max, stream);
-                    try self.exp(stream);
-                    var sum: T = 0.0;
-                    try self.sumReduce(stream, &sum);
-                    try stream.sync();
-                    try self.scale(1.0 / sum, stream);
+                f16 => {
+                    try err.checkCuda(c.tomoGtH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
                 },
+                f32 => {
+                    try err.checkCuda(c.tomoGtF(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoGtD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn gtEq(self: *Self, num: T, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoGtEqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoGtEqH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoGtEqF(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoGtEqD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn lt(self: *Self, num: T, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoLtB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoLtH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoLtF(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoLtD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn ltEq(self: *Self, num: T, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoLtEqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoLtEqH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoLtEqF(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoLtEqD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn eq(self: *Self, num: T, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoEqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoEqH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoEqF(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoEqD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                else => unreachable,
             }
         }
     };
