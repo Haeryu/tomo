@@ -319,6 +319,8 @@ pub fn GPUTensor(comptime T: type) type {
         pub const Base = TensorBase(max_rank);
         pub const Elem = T;
 
+        pub const invalid: Self = .{};
+
         pub const Slice = struct {
             start: ?isize = null,
             stop: ?isize = null,

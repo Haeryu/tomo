@@ -20,10 +20,11 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             }
 
             for (self.base.getShapeConst(), new_shape) |in_dim, out_dim| {
-                if (out_dim % in_dim != 0) {
+                if (out_dim == 0 or out_dim % in_dim != 0) {
                     return error.InvalidBroadcast;
                 }
             }
+
             var out = try GPUTensor(T).initAsync(new_shape, stream);
             errdefer out.deinitAsync(stream);
 
