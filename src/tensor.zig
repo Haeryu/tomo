@@ -101,7 +101,7 @@ pub fn CPUTensor(comptime T: type) type {
         const Self = @This();
         const Base = TensorBase(max_rank);
 
-        const max_rank = 4;
+        const max_rank = 8;
 
         pub fn getSize(self: *const Self) usize {
             return self.base.countElem() * @sizeOf(T);
@@ -314,7 +314,7 @@ pub fn GPUTensor(comptime T: type) type {
         ptr: ?[*]T = null,
         base: Base = undefined,
 
-        pub const max_rank: comptime_int = 4;
+        pub const max_rank: comptime_int = 8;
         const Self = @This();
         pub const Base = TensorBase(max_rank);
         pub const Elem = T;
