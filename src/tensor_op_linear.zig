@@ -73,5 +73,69 @@ pub fn TensorOpLinear(comptime T: type) type {
 
             return res.move();
         }
+
+        pub fn linearImp(self: *const Self, other: *const Self, bias: ?*const Self, stream: *const Stream) !Self {
+            std.debug.assert(self.base.getCol() == other.base.getRow());
+            if (bias) |b| {
+                std.debug.assert(b.base.getRow() == self.base.getRow());
+                std.debug.assert(b.base.getCol() == other.base.getCol());
+            }
+            var res = try Self.initAsync(&.{ self.base.getRow(), other.base.getCol() }, stream);
+            errdefer res.deinitAsync(stream);
+
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoLinearImpB(
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(other.ptr.?),
+                        self.base.getRow(),
+                        self.base.getCol(),
+                        other.base.getCol(),
+                        if (bias) |b| @ptrCast(b.ptr) else null,
+                        @ptrCast(res.ptr),
+                        stream.stream,
+                    ));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoLinearImpH(
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(other.ptr.?),
+                        self.base.getRow(),
+                        self.base.getCol(),
+                        other.base.getCol(),
+                        if (bias) |b| @ptrCast(b.ptr) else null,
+                        @ptrCast(res.ptr),
+                        stream.stream,
+                    ));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoLinearImpF(
+                        self.ptr.?,
+                        other.ptr.?,
+                        self.base.getRow(),
+                        self.base.getCol(),
+                        other.base.getCol(),
+                        if (bias) |b| b.ptr else null,
+                        res.ptr,
+                        stream.stream,
+                    ));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoLinearImpD(
+                        self.ptr.?,
+                        other.ptr.?,
+                        self.base.getRow(),
+                        self.base.getCol(),
+                        other.base.getCol(),
+                        if (bias) |b| b.ptr else null,
+                        res.ptr,
+                        stream.stream,
+                    ));
+                },
+                else => unreachable,
+            }
+
+            return res.move();
+        }
     };
 }

@@ -154,3 +154,5 @@ inline __host__ __device__ __nv_bfloat16_raw operator-(__nv_bfloat16_raw const &
 inline __host__ __device__ __nv_bfloat16_raw operator-(__nv_bfloat16_raw const &lh, __nv_bfloat16_raw const &rh) { return __nv_bfloat16{lh} - __nv_bfloat16{rh}; }
 inline __host__ __device__ __nv_bfloat16_raw operator*(__nv_bfloat16_raw const &lh, __nv_bfloat16_raw const &rh) { return __nv_bfloat16{lh} * __nv_bfloat16{rh}; }
 inline __host__ __device__ __nv_bfloat16_raw operator/(__nv_bfloat16_raw const &lh, __nv_bfloat16_raw const &rh) { return __nv_bfloat16{lh} / __nv_bfloat16{rh}; }
+
+

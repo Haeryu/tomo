@@ -82,6 +82,7 @@ __device__ auto tomoInv(auto &val)
 //     return cudaGetLastError();
 // }
 
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSinH(__half_raw *a, size_t len, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [] __device__(__half_raw const &x)

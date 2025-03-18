@@ -51,7 +51,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    out_shape.len,
                     out_size,
                     stream.stream,
                 )),
@@ -70,7 +70,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    out_shape.len,
                     out_size,
                     stream.stream,
                 )),
@@ -89,7 +89,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    out_shape.len,
                     out_size,
                     stream.stream,
                 )),
@@ -108,7 +108,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    out_shape.len,
                     out_size,
                     stream.stream,
                 )),
@@ -162,7 +162,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    gy.base.getShapeConst().len,
                     out_size,
                     stream.stream,
                 )),
@@ -181,7 +181,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    gy.base.getShapeConst().len,
                     out_size,
                     stream.stream,
                 )),
@@ -200,7 +200,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    gy.base.getShapeConst().len,
                     out_size,
                     stream.stream,
                 )),
@@ -219,7 +219,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                     starts.len,
                     steps.ptr,
                     steps.len,
-                    self.base.getShapeConst().len,
+                    gy.base.getShapeConst().len,
                     out_size,
                     stream.stream,
                 )),
@@ -230,7 +230,7 @@ pub fn TensorOpBatch(comptime T: type) type {
         }
 
         pub fn toOneHot(indices: *const GPUTensor(usize), comptime F: type, num_classes: usize, stream: *const Stream) !GPUTensor(F) {
-            if (indices.base.rank != 1) return error.InvalidIndicesRank;
+            if (indices.base.getShapeConst().len != 1) return error.InvalidIndicesRank;
 
             const batch_size = indices.base.getShapeConst()[0];
 

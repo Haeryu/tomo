@@ -26,6 +26,17 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideB(__nv_bfloat16_raw *a, __nv_bf
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideF(float *a, float const *b, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideD(double *a, double const *b, size_t len, cudaStream_t stream);
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualH(__half_raw *a, __half_raw const *b, size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualF(float *a, float const *b, size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualD(double *a, double const *b, size_t len, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualUz(size_t *a, size_t const *b, size_t len, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualApproxH(__half_raw *a, __half_raw const *b, size_t len, __half_raw eps, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualApproxB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, __nv_bfloat16_raw eps, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualApproxF(float *a, float const *b, size_t len, float eps, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualApproxD(double *a, double const *b, size_t len, double eps, cudaStream_t stream);
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoReluBackwardH(
     const __half_raw *x, __half_raw *grad,
     size_t len, cudaStream_t stream);

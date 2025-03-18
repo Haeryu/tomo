@@ -86,6 +86,48 @@ pub fn TensorOpElemwise(comptime T: type) type {
             }
         }
 
+        pub fn equal(self: *Self, other: *const Self, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), other.base.getShapeConst()));
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoEqualB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoEqualH(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoEqualF(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoEqualD(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
+                },
+                usize => {
+                    try err.checkCuda(c.tomoEqualUz(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn equalApprox(self: *Self, other: *const Self, eps: T, stream: *const Stream) !void {
+            std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), other.base.getShapeConst()));
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoEqualApproxB(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), eps, stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoEqualApproxH(@ptrCast(self.ptr.?), @ptrCast(other.ptr.?), self.calcLen(), eps, stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoEqualApproxF(self.ptr.?, other.ptr.?, self.calcLen(), eps, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoEqualApproxD(self.ptr.?, other.ptr.?, self.calcLen(), eps, stream.stream));
+                },
+
+                else => unreachable,
+            }
+        }
+
         pub fn reluBackward(self: *Self, x: *const Self, stream: *const Stream) !void {
             std.debug.assert(std.mem.eql(usize, self.base.getShapeConst(), x.base.getShapeConst()));
             switch (T) {

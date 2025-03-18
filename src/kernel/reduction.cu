@@ -91,70 +91,70 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSumReduceD(double const *a,
     return tomoSumReduce(a, len, host_out, stream);
 }
 
-cudaError_t tomoMean(auto const *a,
-                     size_t len,
-                     auto *host_out,
-                     cudaStream_t stream)
-{
-    using T = std::remove_cvref_t<decltype(*a)>;
+// cudaError_t tomoMean(auto const *a,
+//                      size_t len,
+//                      auto *host_out,
+//                      cudaStream_t stream)
+// {
+//     using T = std::remove_cvref_t<decltype(*a)>;
 
-    auto err = tomoSumReduce(a, len, host_out, stream);
+//     auto err = tomoSumReduce(a, len, host_out, stream);
 
-    if (err != cudaSuccess)
-    {
-        return err;
-    }
+//     if (err != cudaSuccess)
+//     {
+//         return err;
+//     }
 
-    if (len > 0)
-    {
-        if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
-        {
-            *host_out = static_cast<__nv_bfloat16>(*host_out) / static_cast<__nv_bfloat16>(len);
-        }
-        else if constexpr (std::is_same_v<T, __half_raw>)
-        {
-            *host_out = static_cast<__half>(*host_out) / static_cast<__half>(len);
-        }
-        else
-        {
-            *host_out = *host_out / static_cast<T>(len);
-        }
-    }
+//     if (len > 0)
+//     {
+//         if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+//         {
+//             *host_out = static_cast<__nv_bfloat16>(*host_out) / static_cast<__nv_bfloat16>(len);
+//         }
+//         else if constexpr (std::is_same_v<T, __half_raw>)
+//         {
+//             *host_out = static_cast<__half>(*host_out) / static_cast<__half>(len);
+//         }
+//         else
+//         {
+//             *host_out = *host_out / static_cast<T>(len);
+//         }
+//     }
 
-    return cudaSuccess;
-}
+//     return cudaSuccess;
+// }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanH(__half_raw const *a,
-                                                 size_t len,
-                                                 __half_raw *host_out,
-                                                 cudaStream_t stream)
-{
-    return tomoMean(a, len, host_out, stream);
-}
+// TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanH(__half_raw const *a,
+//                                                  size_t len,
+//                                                  __half_raw *host_out,
+//                                                  cudaStream_t stream)
+// {
+//     return tomoMean(a, len, host_out, stream);
+// }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanB(__nv_bfloat16_raw const *a,
-                                                 size_t len,
-                                                 __nv_bfloat16_raw *host_out,
-                                                 cudaStream_t stream)
-{
-    return tomoMean(a, len, host_out, stream);
-}
+// TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanB(__nv_bfloat16_raw const *a,
+//                                                  size_t len,
+//                                                  __nv_bfloat16_raw *host_out,
+//                                                  cudaStream_t stream)
+// {
+//     return tomoMean(a, len, host_out, stream);
+// }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanF(float const *a,
-                                                 size_t len,
-                                                 float *host_out,
-                                                 cudaStream_t stream)
-{
-    return tomoMean(a, len, host_out, stream);
-}
+// TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanF(float const *a,
+//                                                  size_t len,
+//                                                  float *host_out,
+//                                                  cudaStream_t stream)
+// {
+//     return tomoMean(a, len, host_out, stream);
+// }
 
-TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanD(double const *a,
-                                                 size_t len,
-                                                 double *host_out,
-                                                 cudaStream_t stream)
-{
-    return tomoMean(a, len, host_out, stream);
-}
+// TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMeanD(double const *a,
+//                                                  size_t len,
+//                                                  double *host_out,
+//                                                  cudaStream_t stream)
+// {
+//     return tomoMean(a, len, host_out, stream);
+// }
 
 cudaError_t tomoMin(const auto *in,
                     size_t len,

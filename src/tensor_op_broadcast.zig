@@ -527,5 +527,242 @@ pub fn TensorOpBroadCast(comptime T: type) type {
 
             return out;
         }
+
+        pub fn argmax(
+            self: *const Self,
+            allocator: std.mem.Allocator,
+            axes: ?[]const isize,
+            keepdims: bool,
+            stream: *const Stream,
+        ) !GPUTensor(usize) {
+            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
+            defer allocator.free(new_shape);
+            defer allocator.free(new_shape_keepdims);
+
+            // Create output tensor with keepdims=true shape.
+            var out = try GPUTensor(usize).initAsync(new_shape_keepdims, stream);
+            errdefer out.deinitAsync(stream);
+            // For min reduction, initialize with positive infinity.
+            //   try out.fill(if (T == Bf16) Bf16.fromF32(std.math.inf(f32)) else if (T == f16) std.math.inf(f32) else std.math.inf(f32), stream);
+
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoArgmaxH(
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
+                        self.base.getShape().ptr,
+                        self.base.getShape().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        //  self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShape().len,
+                        stream.stream,
+                    ));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoArgmaxB(
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
+                        self.base.getShape().ptr,
+                        self.base.getShape().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        // self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShape().len,
+                        stream.stream,
+                    ));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoArgmaxF(
+                        self.ptr.?,
+                        out.ptr.?,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        //self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShapeConst().len,
+                        stream.stream,
+                    ));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoArgmaxD(
+                        self.ptr.?,
+                        out.ptr.?,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        // self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShapeConst().len,
+                        stream.stream,
+                    ));
+                },
+                else => unreachable,
+            }
+
+            if (!keepdims) {
+                try out.squeeze(allocator);
+            }
+
+            return out;
+        }
+
+        pub fn argmin(
+            self: *const Self,
+            allocator: std.mem.Allocator,
+            axes: ?[]const isize,
+            keepdims: bool,
+            stream: *const Stream,
+        ) !GPUTensor(usize) {
+            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
+            defer allocator.free(new_shape);
+            defer allocator.free(new_shape_keepdims);
+
+            // Create output tensor with keepdims=true shape.
+            var out = try GPUTensor(usize).initAsync(new_shape_keepdims, stream);
+            errdefer out.deinitAsync(stream);
+            // For min reduction, initialize with positive infinity.
+            //   try out.fill(if (T == Bf16) Bf16.fromF32(std.math.inf(f32)) else if (T == f16) std.math.inf(f32) else std.math.inf(f32), stream);
+
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoArgminH(
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
+                        self.base.getShape().ptr,
+                        self.base.getShape().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShape().len,
+                        stream.stream,
+                    ));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoArgminB(
+                        @ptrCast(self.ptr.?),
+                        @ptrCast(out.ptr.?),
+                        self.base.getShape().ptr,
+                        self.base.getShape().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShape().len,
+                        stream.stream,
+                    ));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoArgminF(
+                        self.ptr.?,
+                        out.ptr.?,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShapeConst().len,
+                        stream.stream,
+                    ));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoArgminD(
+                        self.ptr.?,
+                        out.ptr.?,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
+                        new_shape_keepdims.ptr,
+                        new_shape_keepdims.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        out.base.getStrides().ptr,
+                        out.base.getStrides().len,
+                        self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShapeConst().len,
+                        stream.stream,
+                    ));
+                },
+                else => unreachable,
+            }
+
+            if (!keepdims) {
+                try out.squeeze(allocator);
+            }
+
+            return out;
+        }
+
+        pub fn mean(
+            self: *const Self,
+            allocator: std.mem.Allocator,
+            axes: ?[]const isize,
+            keepdims: bool,
+            stream: *const Stream,
+        ) !GPUTensor(T) {
+            var out = try self.sum(allocator, axes, keepdims, stream);
+            errdefer out.deinitAsync(stream);
+
+            try out.scale(1 / @as(T, @floatFromInt(self.calcLen())), stream);
+
+            return out;
+        }
+
+        pub fn variance(
+            self: *const Self,
+            allocator: std.mem.Allocator,
+            axes: ?[]const isize,
+            keepdims: bool,
+            stream: *const Stream,
+        ) !GPUTensor(T) {
+            var x = try self.cloneAsync(stream);
+            defer x.deinitAsync(stream);
+
+            var m = try x.mean(allocator, axes, keepdims, stream);
+            defer m.deinitAsync(stream);
+
+            var m_broad = try m.broadcastTo(x.base.getShapeConst(), stream);
+            defer m_broad.deinitAsync(stream);
+
+            try x.sub(m, stream);
+            try x.square(stream);
+
+            return try x.mean(allocator, axes, keepdims, stream);
+        }
     };
 }

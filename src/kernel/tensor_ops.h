@@ -154,6 +154,19 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearD(
     double const *A, double const *B, size_t M, size_t K, size_t N, double const *bias, double *C,
     cudaStream_t stream);
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpH(
+    __half_raw const *A, __half_raw const *B, size_t M, size_t K, size_t N,
+    __half_raw const *bias, __half_raw *C, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpB(
+    __nv_bfloat16_raw const *A, __nv_bfloat16_raw const *B, size_t M, size_t K, size_t N,
+    __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpF(
+    float const *A, float const *B, size_t M, size_t K, size_t N,
+    float const *bias, float *C, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpD(
+    double const *A, double const *B, size_t M, size_t K, size_t N,
+    double const *bias, double *C, cudaStream_t stream);
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeH(__half_raw const *A, size_t M, size_t N, __half_raw *C, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeB(__nv_bfloat16_raw const *A, size_t M, size_t N, __nv_bfloat16_raw *C, cudaStream_t stream);
@@ -524,4 +537,121 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2imD(
     size_t sy, size_t sx,
     size_t ph, size_t pw,
     size_t dx, size_t dy,
+    cudaStream_t stream);
+
+// Argmax wrappers
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxH(
+    const __half_raw *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxB(
+    const __nv_bfloat16_raw *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxF(
+    const float *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxD(
+    const double *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+
+// Argmin wrappers
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminH(
+    const __half_raw *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminB(
+    const __nv_bfloat16_raw *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminF(
+    const float *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminD(
+    const double *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t const *out_strides,
+    size_t out_strides_len,
+    size_t out_size,
+    size_t nd,
     cudaStream_t stream);

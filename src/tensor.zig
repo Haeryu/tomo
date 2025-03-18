@@ -276,13 +276,16 @@ pub fn CPUTensor(comptime T: type) type {
             if (depth == self.base.rank - 1) {
                 // At the last dimension: print a row
                 try printIndent(writer, indent);
-                try writer.print("[ ", .{});
+                try writer.print("[", .{});
                 var i: usize = 0;
                 while (i < self.base.shape[depth]) : (i += 1) {
+                    if (i > 0) {
+                        try writer.print(", ", .{});
+                    }
                     indices[depth] = i;
-                    try writer.print("{" ++ fmt ++ "}, ", .{self.at(indices[0..self.base.rank]).*});
+                    try writer.print("{" ++ fmt ++ "}", .{self.at(indices[0..self.base.rank]).*});
                 }
-                try writer.print("],\n", .{});
+                try writer.print("]", .{});
             } else {
                 // Print an opening bracket for the current level
                 try printIndent(writer, indent);
@@ -291,10 +294,14 @@ pub fn CPUTensor(comptime T: type) type {
                 while (i < self.base.shape[depth]) : (i += 1) {
                     indices[depth] = i;
                     try self.printRecursive(fmt, indices, depth + 1, indent + 1, writer);
+                    if (i < self.base.shape[depth] - 1) {
+                        try writer.print(",", .{});
+                    }
+                    try writer.print("\n", .{});
                 }
                 // Print a closing bracket for the current level
                 try printIndent(writer, indent);
-                try writer.print("]\n", .{});
+                try writer.print("]", .{});
             }
         }
 
@@ -304,7 +311,7 @@ pub fn CPUTensor(comptime T: type) type {
 
             try out.writeFromHostAsync(self.data, 0, stream);
 
-            return out;
+            return out.move();
         }
     };
 }
@@ -540,6 +547,11 @@ pub fn GPUTensor(comptime T: type) type {
             for (self.base.getShapeConst()) |dim| {
                 if (dim != 1) try new_shape.append(dim);
             }
+
+            if (new_shape.items.len == 0) {
+                try new_shape.append(1);
+            }
+
             self.base = Base.init(new_shape.items);
         }
 
