@@ -87,7 +87,7 @@ pub fn TensorFillRandom(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             const fan_in, _ = self.base.computeFanInOut();
-            const limit = @sqrt(3.0 / @as(T, @floatFromInt(fan_in)));
+            const limit = @sqrt(6.0 / @as(T, @floatFromInt(fan_in)));
             try self.fillUniformRange(-limit, limit, cuda_context, stream);
         }
     };

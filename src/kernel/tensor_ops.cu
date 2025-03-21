@@ -996,464 +996,762 @@ cudaError_t tomoLinear(T const *A, T const *B, size_t M, size_t K, size_t N, T c
     return cudaGetLastError();
 }
 
-#define BM 128 // Tile height for C (rows)
-#define BN 128 // Tile width for C (columns)
-#define BK 8   // Tile depth (inner dimension)
-#define TM 8   // Sub-tile height per thread
-#define TN 8   // Sub-tile width per thread
+template <typename T>
+struct TileDims
+{
+    // Default tile sizes for float, half, etc.
+    static constexpr int BM = 64;
+    static constexpr int BK = 32;
+    static constexpr int BN = 64;
+};
+
+// Specialization for double: smaller BK to reduce shared memory usage
+template <>
+struct TileDims<double>
+{
+    static constexpr int BM = 64;
+    static constexpr int BK = 16;
+    static constexpr int BN = 64;
+};
+#define TM 4 // Sub-tile height per thread
+#define TN 4 // Sub-tile width per thread
 
 #define CEIL_DIV(a, b) (((a) + (b) - 1) / (b))
 
+// static __device__ inline half2 vload_half2(const __half_raw* ptr)
+// {
+//     // If your environment supports it, you can do direct pointer casts:
+//     // return *(reinterpret_cast<const half2*>(ptr));
+//     // Or an inline PTX approach. For brevity, let's just do:
+//     return __halves2half2(ptr[0], ptr[1]);
+// }
+
 __global__ void tomoLinearKernelimpH(
-    __half_raw const *A,          // Input matrix A (M x K)
-    __half_raw const *B,          // Input matrix B (K x N)
-    size_t M, size_t K, size_t N, // Dimensions
-    __half_raw const *bias,       // Bias (optional, M x N)
-    __half_raw *C                 // Output matrix C (M x N)
+    const __half_raw *__restrict__ A, // (M x K)
+    const __half_raw *__restrict__ B, // (K x N)
+    size_t M, size_t K, size_t N,
+    const __half_raw *__restrict__ bias, // (optional, M x N)
+    __half_raw *__restrict__ C           // (M x N)
 )
 {
-    // Thread’s position within the tile
-    const size_t x = threadIdx.x * TN;      // Starting column offset in the tile
-    const size_t y = threadIdx.y * TM;      // Starting row offset in the tile
-    const size_t row = blockIdx.y * BM + y; // Global row in C
-    const size_t col = blockIdx.x * BN + x; // Global column in C
+    constexpr int BM = TileDims<__half_raw>::BM;
+    constexpr int BK = TileDims<__half_raw>::BK;
+    constexpr int BN = TileDims<__half_raw>::BN;
 
-    // Shared memory for tiles of A and B
-    __shared__ __half_raw Ashared_h[BM][BK];
-    __shared__ __half_raw Bshared_h[BK][BN];
+    // 2D index in the grid
+    const int blockRow = blockIdx.y; // which block in dimension M
+    const int blockCol = blockIdx.x; // which block in dimension N
 
-    // Local array to accumulate sums for the TM x TN sub-tile
+    // 2D index in the block
+    const int threadRow = threadIdx.y;
+    const int threadCol = threadIdx.x;
+
+    // Global row/column for the block
+    const int globalRow = blockRow * BM;
+    const int globalCol = blockCol * BN;
+
+    // Start offsets in shared memory
+    // We'll keep two buffers for double‐buffering: As[2][BM][BK], Bs[2][BK][BN].
+    __shared__ __half_raw As[2][BM][BK];
+    __shared__ __half_raw Bs[2][BK][BN];
+
+    // Each thread accumulates a sub‐tile of size TM x TN in registers
+    // i.e. 4×4, or 4×8, etc.
     __half_raw sum[TM][TN];
-    for (size_t i = 0; i < TM; i++)
+#pragma unroll
+    for (int i = 0; i < TM; i++)
     {
-        for (size_t j = 0; j < TN; j++)
+#pragma unroll
+        for (int j = 0; j < TN; j++)
         {
-            sum[i][j] = (__half_raw)0.0f;
+            sum[i][j] = __half_raw(0.0f);
         }
     }
 
-    // Iterate over the K dimension in steps of BK
-    for (size_t k = 0; k < K; k += BK)
+    // We’ll assume (BM * BK) and (BK * BN) are divisible by (blockDim.x * blockDim.y).
+    // So each thread can copy multiple elements in a loop.
+
+    // Compute how many tiles along K
+    const int numTiles = (K + BK - 1) / BK; // assume K multiple of BK for simplicity
+
+    // For double buffering, we keep track of the “read index” vs. the “compute index”
+    int loadIdx = 0; // we load into this buffer
+    int compIdx = 1; // we compute from this buffer
+
+    // Local thread id if we want 1D
+    int tid = threadRow * blockDim.x + threadCol;
+    int tdim = blockDim.x * blockDim.y;
+
+    //----------- FIRST TILE LOAD (Tile 0) -----------
     {
-        // Load tiles into shared memory
-        size_t tid = threadIdx.y * blockDim.x + threadIdx.x;
-        const size_t elements_per_thread = (BM * BK) / (blockDim.x * blockDim.y); // e.g., 4
-        for (size_t i = 0; i < elements_per_thread; i++)
+        // load A tile 0 into As[loadIdx], B tile 0 into Bs[loadIdx]
+        // Each thread copies multiple elements from global to shared
+
+        // A tile is (BM×BK)
+        for (int idx = tid; idx < BM * BK; idx += tdim)
         {
-            size_t idx = tid + i * (blockDim.x * blockDim.y);
-
-            // Load A tile
-            if (idx < BM * BK)
+            int a_row = idx / BK;       // local row
+            int a_col = idx % BK;       // local col
+            int ga = globalRow + a_row; // global row in A
+            int ka = 0 + a_col;         // global col in A (tile 0 => offset=0)
+            // Check boundary
+            if (ga < M && ka < K)
             {
-                size_t a_row = idx / BK;
-                size_t a_col = idx % BK;
-                if (blockIdx.y * BM + a_row < M && k + a_col < K)
-                {
-                    Ashared_h[a_row][a_col] = A[(blockIdx.y * BM + a_row) * K + k + a_col];
-                }
-                else
-                {
-                    Ashared_h[a_row][a_col] = (__half_raw)0.0f;
-                }
+                As[loadIdx][a_row][a_col] = A[ga * K + ka];
             }
-
-            // Load B tile
-            if (idx < BK * BN)
+            else
             {
-                size_t b_row = idx / BN;
-                size_t b_col = idx % BN;
-                if (k + b_row < K && blockIdx.x * BN + b_col < N)
-                {
-                    Bshared_h[b_row][b_col] = B[(k + b_row) * N + blockIdx.x * BN + b_col];
-                }
-                else
-                {
-                    Bshared_h[b_row][b_col] = (__half_raw)0.0f;
-                }
+                As[loadIdx][a_row][a_col] = __half_raw(0.0f);
             }
         }
-        __syncthreads();
-
-        // Compute partial sums for the TM x TN sub-tile
-        for (size_t m = 0; m < BK; m++)
+        // B tile is (BK×BN)
+        for (int idx = tid; idx < BK * BN; idx += tdim)
         {
-            __half_raw a[TM];
-            __half_raw b[TN];
-            // Load values from shared memory once per m
-            for (size_t i = 0; i < TM; i++)
+            int b_row = idx / BN;
+            int b_col = idx % BN;
+            int kb = 0 + b_row; // global row in B (tile 0 => offset=0)
+            int gb = globalCol + b_col;
+            if (kb < K && gb < N)
             {
-                a[i] = Ashared_h[y + i][m];
+                Bs[loadIdx][b_row][b_col] = B[kb * N + gb];
             }
-            for (size_t j = 0; j < TN; j++)
+            else
             {
-                b[j] = Bshared_h[m][x + j];
-            }
-            // Accumulate products
-            for (size_t i = 0; i < TM; i++)
-            {
-                for (size_t j = 0; j < TN; j++)
-                {
-                    sum[i][j] = sum[i][j] + a[i] * b[j];
-                }
+                Bs[loadIdx][b_row][b_col] = __half_raw(0.0f);
             }
         }
-        __syncthreads();
     }
+    __syncthreads();
 
-    // Write results to global memory with bias
-    for (size_t i = 0; i < TM; i++)
+    //----------- MAIN LOOP OVER TILES -----------
+    for (int tile = 0; tile < numTiles; tile++)
     {
-        for (size_t j = 0; j < TN; j++)
+        // Swap loadIdx and compIdx so we compute on the tile that was loaded
+        loadIdx = tile % 2;
+        compIdx = (tile + 1) % 2;
+
+        // Launch asynchronous load for the *next* tile if not the last tile
+        if (tile < numTiles - 1)
         {
-            if (row + i < M && col + j < N)
+            int nextOffset = (tile + 1) * BK; // starting K for next tile
+
+            // A tile in the next offset
+            for (int idx = tid; idx < BM * BK; idx += tdim)
             {
-                size_t idx = (row + i) * N + col + j;
-                C[idx] = sum[i][j];
-                if (bias != NULL)
+                int a_row = idx / BK;
+                int a_col = idx % BK;
+                int ga = globalRow + a_row;
+                int ka = nextOffset + a_col;
+                if (ga < M && ka < K)
                 {
-                    C[idx] = C[idx] + bias[idx];
+                    As[compIdx][a_row][a_col] = A[ga * K + ka];
+                }
+                else
+                {
+                    As[compIdx][a_row][a_col] = __half_raw(0.0f);
+                }
+            }
+            // B tile in the next offset
+            for (int idx = tid; idx < BK * BN; idx += tdim)
+            {
+                int b_row = idx / BN;
+                int b_col = idx % BN;
+                int kb = nextOffset + b_row;
+                int gb = globalCol + b_col;
+                if (kb < K && gb < N)
+                {
+                    Bs[compIdx][b_row][b_col] = B[kb * N + gb];
+                }
+                else
+                {
+                    Bs[compIdx][b_row][b_col] = __half_raw(0.0f);
+                }
+            }
+        }
+
+        // We must __syncthreads() before we start computing on As[loadIdx], Bs[loadIdx]
+        __syncthreads();
+
+        //----- Multiply-Accumulate on the current tile "tile" from As[loadIdx], Bs[loadIdx] -----
+        // Each tile is BK wide in K dimension
+        // We can do partial unrolling (hand unroll the loop over BK).
+        // For simplicity, we do #pragma unroll in a normal for loop:
+
+#pragma unroll
+        for (int m = 0; m < BK; m++)
+        {
+            // Each thread loads a tiny sub-vector from shared
+            __half_raw aFrag[TM];
+            __half_raw bFrag[TN];
+
+#pragma unroll
+            for (int i = 0; i < TM; i++)
+            {
+                int r = threadRow * TM + i; // local row in the BM dimension
+                aFrag[i] = As[loadIdx][r][m];
+            }
+#pragma unroll
+            for (int j = 0; j < TN; j++)
+            {
+                int c = threadCol * TN + j; // local col in the BN dimension
+                bFrag[j] = Bs[loadIdx][m][c];
+            }
+
+// Now do the dot products: sum[i][j] += aFrag[i] * bFrag[j]
+#pragma unroll
+            for (int i = 0; i < TM; i++)
+            {
+#pragma unroll
+                for (int j = 0; j < TN; j++)
+                {
+                    sum[i][j] = __hfma(aFrag[i], bFrag[j], sum[i][j]);
+                }
+            }
+        }
+        __syncthreads(); // ensure we've finished compute before overwriting As/Bs in next iteration
+    } // end for tile
+
+//----------- Write the results to global memory -----------
+// plus the bias if non-null
+#pragma unroll
+    for (int i = 0; i < TM; i++)
+    {
+        int rowOut = globalRow + threadRow * TM + i;
+        if (rowOut < M)
+        {
+#pragma unroll
+            for (int j = 0; j < TN; j++)
+            {
+                int colOut = globalCol + threadCol * TN + j;
+                if (colOut < N)
+                {
+                    size_t outIdx = rowOut * N + colOut;
+                    __half_raw val = sum[i][j];
+                    if (bias != nullptr)
+                    {
+                        val = __hadd(val, bias[outIdx]);
+                    }
+                    C[outIdx] = val;
                 }
             }
         }
     }
 }
 
+__device__ inline __nv_bfloat16 bf16_fma(__nv_bfloat16 a, __nv_bfloat16 b, __nv_bfloat16 c)
+{
+    // Convert to float
+    float fa = __bfloat162float(a);
+    float fb = __bfloat162float(b);
+    float fc = __bfloat162float(c);
+    // Perform FMA in float
+    float fres = fa * fb + fc;
+    // Convert back
+    return __float2bfloat16_rn(fres);
+}
+
+// The double‐buffered bfloat16 kernel
 __global__ void tomoLinearKernelimpB(
-    __nv_bfloat16_raw const *A,    // Input matrix A (M x K)
-    __nv_bfloat16_raw const *B,    // Input matrix B (K x N)
-    size_t M, size_t K, size_t N,  // Dimensions
-    __nv_bfloat16_raw const *bias, // Bias (optional, M x N)
-    __nv_bfloat16_raw *C           // Output matrix C (M x N)
+    const __nv_bfloat16_raw *__restrict__ A, // (M x K)
+    const __nv_bfloat16_raw *__restrict__ B, // (K x N)
+    size_t M, size_t K, size_t N,
+    const __nv_bfloat16_raw *__restrict__ bias, // (optional, M x N)
+    __nv_bfloat16_raw *__restrict__ C           // (M x N)
 )
 {
-    // Thread’s position within the tile
-    const size_t x = threadIdx.x * TN;      // Starting column offset in the tile
-    const size_t y = threadIdx.y * TM;      // Starting row offset in the tile
-    const size_t row = blockIdx.y * BM + y; // Global row in C
-    const size_t col = blockIdx.x * BN + x; // Global column in C
 
-    // Shared memory for tiles of A and B
-    __shared__ __nv_bfloat16_raw Ashared_b[BM][BK];
-    __shared__ __nv_bfloat16_raw Bshared_b[BK][BN];
+    constexpr int BM = TileDims<__nv_bfloat16_raw>::BM;
+    constexpr int BK = TileDims<__nv_bfloat16_raw>::BK;
+    constexpr int BN = TileDims<__nv_bfloat16_raw>::BN;
 
-    // Local array to accumulate sums for the TM x TN sub-tile
+    // 2D block index
+    const int blockRow = blockIdx.y;
+    const int blockCol = blockIdx.x;
+
+    // 2D thread index
+    const int threadRow = threadIdx.y;
+    const int threadCol = threadIdx.x;
+
+    // Start row/col in global memory
+    const int globalRow = blockRow * BM;
+    const int globalCol = blockCol * BN;
+
+    // Double‐buffered shared memory
+    __shared__ __nv_bfloat16_raw As[2][BM][BK];
+    __shared__ __nv_bfloat16_raw Bs[2][BK][BN];
+
+    // Accumulator sub‐tile in registers (TM × TN)
     __nv_bfloat16_raw sum[TM][TN];
-    for (size_t i = 0; i < TM; i++)
+#pragma unroll
+    for (int i = 0; i < TM; i++)
     {
-        for (size_t j = 0; j < TN; j++)
+#pragma unroll
+        for (int j = 0; j < TN; j++)
         {
             sum[i][j] = (__nv_bfloat16_raw)0.0f;
         }
     }
 
-    // Iterate over the K dimension in steps of BK
-    for (size_t k = 0; k < K; k += BK)
-    {
-        // Load tiles into shared memory
-        size_t tid = threadIdx.y * blockDim.x + threadIdx.x;
-        const size_t elements_per_thread = (BM * BK) / (blockDim.x * blockDim.y); // e.g., 4
-        for (size_t i = 0; i < elements_per_thread; i++)
-        {
-            size_t idx = tid + i * (blockDim.x * blockDim.y);
+    const int numTiles = (K + BK - 1) / BK;
+    // 1D thread id for loading
+    int tid = threadRow * blockDim.x + threadCol;
+    int tdim = blockDim.x * blockDim.y;
 
-            // Load A tile
-            if (idx < BM * BK)
+    int loadIdx = 0;
+    int compIdx = 1;
+
+    //---------- Load first tile (tile=0) ----------
+    {
+        // A tile (BM×BK)
+        for (int idx = tid; idx < BM * BK; idx += tdim)
+        {
+            int a_row = idx / BK;
+            int a_col = idx % BK;
+            int ga = globalRow + a_row;
+            int ka = a_col;
+            if (ga < M && ka < K)
             {
-                size_t a_row = idx / BK;
-                size_t a_col = idx % BK;
-                if (blockIdx.y * BM + a_row < M && k + a_col < K)
+                As[loadIdx][a_row][a_col] = A[ga * K + ka];
+            }
+            else
+            {
+                As[loadIdx][a_row][a_col] = (__nv_bfloat16_raw)0.0f;
+            }
+        }
+        // B tile (BK×BN)
+        for (int idx = tid; idx < BK * BN; idx += tdim)
+        {
+            int b_row = idx / BN;
+            int b_col = idx % BN;
+            int kb = b_row;
+            int gb = globalCol + b_col;
+            if (kb < K && gb < N)
+            {
+                Bs[loadIdx][b_row][b_col] = B[kb * N + gb];
+            }
+            else
+            {
+                Bs[loadIdx][b_row][b_col] = (__nv_bfloat16_raw)0.0f;
+            }
+        }
+    }
+    __syncthreads();
+
+    //---------- Main loop over K tiles ----------
+    for (int tile = 0; tile < numTiles; tile++)
+    {
+        loadIdx = tile % 2;
+        compIdx = (tile + 1) % 2;
+
+        // Launch load for the next tile
+        if (tile < numTiles - 1)
+        {
+            int nextOffset = (tile + 1) * BK;
+            // Load As[compIdx], Bs[compIdx]
+            for (int idx = tid; idx < BM * BK; idx += tdim)
+            {
+                int a_row = idx / BK;
+                int a_col = idx % BK;
+                int ga = globalRow + a_row;
+                int ka = nextOffset + a_col;
+                if (ga < M && ka < K)
                 {
-                    Ashared_b[a_row][a_col] = A[(blockIdx.y * BM + a_row) * K + k + a_col];
+                    As[compIdx][a_row][a_col] = A[ga * K + ka];
                 }
                 else
                 {
-                    Ashared_b[a_row][a_col] = (__nv_bfloat16_raw)0.0f;
+                    As[compIdx][a_row][a_col] = (__nv_bfloat16_raw)0.0f;
                 }
             }
-
-            // Load B tile
-            if (idx < BK * BN)
+            for (int idx = tid; idx < BK * BN; idx += tdim)
             {
-                size_t b_row = idx / BN;
-                size_t b_col = idx % BN;
-                if (k + b_row < K && blockIdx.x * BN + b_col < N)
+                int b_row = idx / BN;
+                int b_col = idx % BN;
+                int kb = nextOffset + b_row;
+                int gb = globalCol + b_col;
+                if (kb < K && gb < N)
                 {
-                    Bshared_b[b_row][b_col] = B[(k + b_row) * N + blockIdx.x * BN + b_col];
+                    Bs[compIdx][b_row][b_col] = B[kb * N + gb];
                 }
                 else
                 {
-                    Bshared_b[b_row][b_col] = (__nv_bfloat16_raw)0.0f;
+                    Bs[compIdx][b_row][b_col] = (__nv_bfloat16_raw)0.0f;
                 }
             }
         }
         __syncthreads();
 
-        // Compute partial sums for the TM x TN sub-tile
-        for (size_t m = 0; m < BK; m++)
+// Multiply-accumulate on tile "tile" in As[loadIdx], Bs[loadIdx]
+#pragma unroll
+        for (int m = 0; m < BK; m++)
         {
-            __nv_bfloat16_raw a[TM];
-            __nv_bfloat16_raw b[TN];
-            // Load values from shared memory once per m
-            for (size_t i = 0; i < TM; i++)
+            __nv_bfloat16_raw aFrag[TM];
+            __nv_bfloat16_raw bFrag[TN];
+#pragma unroll
+            for (int i = 0; i < TM; i++)
             {
-                a[i] = Ashared_b[y + i][m];
+                int r = threadRow * TM + i;
+                aFrag[i] = As[loadIdx][r][m];
             }
-            for (size_t j = 0; j < TN; j++)
+#pragma unroll
+            for (int j = 0; j < TN; j++)
             {
-                b[j] = Bshared_b[m][x + j];
+                int c = threadCol * TN + j;
+                bFrag[j] = Bs[loadIdx][m][c];
             }
-            // Accumulate products
-            for (size_t i = 0; i < TM; i++)
+// Accumulate
+#pragma unroll
+            for (int i = 0; i < TM; i++)
             {
-                for (size_t j = 0; j < TN; j++)
+#pragma unroll
+                for (int j = 0; j < TN; j++)
                 {
-                    sum[i][j] = sum[i][j] + a[i] * b[j];
+                    sum[i][j] = bf16_fma(aFrag[i], bFrag[j], sum[i][j]);
                 }
             }
         }
         __syncthreads();
     }
 
-    // Write results to global memory with bias
-    for (size_t i = 0; i < TM; i++)
+//----------- Write to global memory (+ optional bias) -----------
+#pragma unroll
+    for (int i = 0; i < TM; i++)
     {
-        for (size_t j = 0; j < TN; j++)
+        int rowOut = globalRow + threadRow * TM + i;
+        if (rowOut < M)
         {
-            if (row + i < M && col + j < N)
+#pragma unroll
+            for (int j = 0; j < TN; j++)
             {
-                size_t idx = (row + i) * N + col + j;
-                C[idx] = sum[i][j];
-                if (bias != NULL)
+                int colOut = globalCol + threadCol * TN + j;
+                if (colOut < N)
                 {
-                    C[idx] = C[idx] + bias[idx];
+                    size_t outIdx = rowOut * N + colOut;
+                    __nv_bfloat16_raw val = sum[i][j];
+                    if (bias != nullptr)
+                    {
+                        val = val + bias[outIdx];
+                    }
+                    C[outIdx] = val;
                 }
             }
         }
     }
 }
 
+__device__ inline float floatFMA(float a, float b, float c)
+{
+    // If your GPU supports single-precision fused multiply add by default,
+    // you can do:
+    return __fmaf_rn(a, b, c);
+    // or simply:
+    // return a * b + c;
+}
+
+// Double‐buffered float kernel
 __global__ void tomoLinearKernelimpF(
-    float const *A,               // Input matrix A (M x K)
-    float const *B,               // Input matrix B (K x N)
-    size_t M, size_t K, size_t N, // Dimensions
-    float const *bias,            // Bias (optional, M x N)
-    float *C                      // Output matrix C (M x N)
-)
+    const float *__restrict__ A,
+    const float *__restrict__ B,
+    size_t M, size_t K, size_t N,
+    const float *__restrict__ bias,
+    float *__restrict__ C)
 {
-    // Thread’s position within the tile
-    const size_t x = threadIdx.x * TN;      // Starting column offset in the tile
-    const size_t y = threadIdx.y * TM;      // Starting row offset in the tile
-    const size_t row = blockIdx.y * BM + y; // Global row in C
-    const size_t col = blockIdx.x * BN + x; // Global column in C
 
-    // Shared memory for tiles of A and B
-    __shared__ float Ashared_f[BM][BK];
-    __shared__ float Bshared_f[BK][BN];
+    constexpr int BM = TileDims<float>::BM;
+    constexpr int BK = TileDims<float>::BK;
+    constexpr int BN = TileDims<float>::BN;
 
-    // Local array to accumulate sums for the TM x TN sub-tile
+    const int blockRow = blockIdx.y;
+    const int blockCol = blockIdx.x;
+    const int threadRow = threadIdx.y;
+    const int threadCol = threadIdx.x;
+
+    const int globalRow = blockRow * BM;
+    const int globalCol = blockCol * BN;
+
+    __shared__ float As[2][BM][BK];
+    __shared__ float Bs[2][BK][BN];
+
     float sum[TM][TN];
-    for (size_t i = 0; i < TM; i++)
+#pragma unroll
+    for (int i = 0; i < TM; i++)
     {
-        for (size_t j = 0; j < TN; j++)
+#pragma unroll
+        for (int j = 0; j < TN; j++)
         {
-            sum[i][j] = (float)0.0f;
+            sum[i][j] = 0.0f;
         }
     }
 
-    // Iterate over the K dimension in steps of BK
-    for (size_t k = 0; k < K; k += BK)
+    const int numTiles = (K + BK - 1) / BK;
+    int tid = threadRow * blockDim.x + threadCol;
+    int tdim = blockDim.x * blockDim.y;
+
+    int loadIdx = 0;
+    int compIdx = 1;
+
+    // Load tile 0
     {
-        // Load tiles into shared memory
-        size_t tid = threadIdx.y * blockDim.x + threadIdx.x;
-        const size_t elements_per_thread = (BM * BK) / (blockDim.x * blockDim.y); // e.g., 4
-        for (size_t i = 0; i < elements_per_thread; i++)
+        for (int idx = tid; idx < BM * BK; idx += tdim)
         {
-            size_t idx = tid + i * (blockDim.x * blockDim.y);
+            int a_row = idx / BK;
+            int a_col = idx % BK;
+            int ga = globalRow + a_row;
+            int ka = a_col;
+            As[loadIdx][a_row][a_col] = (ga < M && ka < K) ? A[ga * K + ka] : 0.0f;
+        }
+        for (int idx = tid; idx < BK * BN; idx += tdim)
+        {
+            int b_row = idx / BN;
+            int b_col = idx % BN;
+            int kb = b_row;
+            int gb = globalCol + b_col;
+            Bs[loadIdx][b_row][b_col] = (kb < K && gb < N) ? B[kb * N + gb] : 0.0f;
+        }
+    }
+    __syncthreads();
 
-            // Load A tile
-            if (idx < BM * BK)
+    // main loop
+    for (int tile = 0; tile < numTiles; tile++)
+    {
+        loadIdx = tile % 2;
+        compIdx = (tile + 1) % 2;
+
+        if (tile < numTiles - 1)
+        {
+            int nextOffset = (tile + 1) * BK;
+            for (int idx = tid; idx < BM * BK; idx += tdim)
             {
-                size_t a_row = idx / BK;
-                size_t a_col = idx % BK;
-                if (blockIdx.y * BM + a_row < M && k + a_col < K)
-                {
-                    Ashared_f[a_row][a_col] = A[(blockIdx.y * BM + a_row) * K + k + a_col];
-                }
-                else
-                {
-                    Ashared_f[a_row][a_col] = (float)0.0f;
-                }
+                int a_row = idx / BK;
+                int a_col = idx % BK;
+                int ga = globalRow + a_row;
+                int ka = nextOffset + a_col;
+                As[compIdx][a_row][a_col] =
+                    (ga < M && ka < K) ? A[ga * K + ka] : 0.0f;
             }
-
-            // Load B tile
-            if (idx < BK * BN)
+            for (int idx = tid; idx < BK * BN; idx += tdim)
             {
-                size_t b_row = idx / BN;
-                size_t b_col = idx % BN;
-                if (k + b_row < K && blockIdx.x * BN + b_col < N)
-                {
-                    Bshared_f[b_row][b_col] = B[(k + b_row) * N + blockIdx.x * BN + b_col];
-                }
-                else
-                {
-                    Bshared_f[b_row][b_col] = (float)0.0f;
-                }
+                int b_row = idx / BN;
+                int b_col = idx % BN;
+                int kb = nextOffset + b_row;
+                int gb = globalCol + b_col;
+                Bs[compIdx][b_row][b_col] =
+                    (kb < K && gb < N) ? B[kb * N + gb] : 0.0f;
             }
         }
         __syncthreads();
 
-        // Compute partial sums for the TM x TN sub-tile
-        for (size_t m = 0; m < BK; m++)
+// Multiply-accumulate
+#pragma unroll
+        for (int m = 0; m < BK; m++)
         {
-            float a[TM];
-            float b[TN];
-            // Load values from shared memory once per m
-            for (size_t i = 0; i < TM; i++)
+            float aFrag[TM];
+            float bFrag[TN];
+#pragma unroll
+            for (int i = 0; i < TM; i++)
             {
-                a[i] = Ashared_f[y + i][m];
+                int r = threadRow * TM + i;
+                aFrag[i] = As[loadIdx][r][m];
             }
-            for (size_t j = 0; j < TN; j++)
+#pragma unroll
+            for (int j = 0; j < TN; j++)
             {
-                b[j] = Bshared_f[m][x + j];
+                int c = threadCol * TN + j;
+                bFrag[j] = Bs[loadIdx][m][c];
             }
-            // Accumulate products
-            for (size_t i = 0; i < TM; i++)
+#pragma unroll
+            for (int i = 0; i < TM; i++)
             {
-                for (size_t j = 0; j < TN; j++)
+#pragma unroll
+                for (int j = 0; j < TN; j++)
                 {
-                    sum[i][j] = sum[i][j] + a[i] * b[j];
+                    sum[i][j] = floatFMA(aFrag[i], bFrag[j], sum[i][j]);
                 }
             }
         }
         __syncthreads();
     }
 
-    // Write results to global memory with bias
-    for (size_t i = 0; i < TM; i++)
+// Write output
+#pragma unroll
+    for (int i = 0; i < TM; i++)
     {
-        for (size_t j = 0; j < TN; j++)
+        int rowOut = globalRow + threadRow * TM + i;
+        if (rowOut < M)
         {
-            if (row + i < M && col + j < N)
+#pragma unroll
+            for (int j = 0; j < TN; j++)
             {
-                size_t idx = (row + i) * N + col + j;
-                C[idx] = sum[i][j];
-                if (bias != NULL)
+                int colOut = globalCol + threadCol * TN + j;
+                if (colOut < N)
                 {
-                    C[idx] = C[idx] + bias[idx];
+                    size_t outIdx = rowOut * N + colOut;
+                    float val = sum[i][j];
+                    if (bias != nullptr)
+                    {
+                        val = val + bias[outIdx];
+                    }
+                    C[outIdx] = val;
                 }
             }
         }
     }
 }
 
-__global__ void tomoLinearKernelimpD(
-    double const *A,              // Input matrix A (M x K)
-    double const *B,              // Input matrix B (K x N)
-    size_t M, size_t K, size_t N, // Dimensions
-    double const *bias,           // Bias (optional, M x N)
-    double *C                     // Output matrix C (M x N)
-)
+__device__ inline double doubleFMA(double a, double b, double c)
 {
-    // Thread’s position within the tile
-    const size_t x = threadIdx.x * TN;      // Starting column offset in the tile
-    const size_t y = threadIdx.y * TM;      // Starting row offset in the tile
-    const size_t row = blockIdx.y * BM + y; // Global row in C
-    const size_t col = blockIdx.x * BN + x; // Global column in C
+    // If your hardware or compiler supports double-precision FMA by default,
+    // you can do:
+    return a * b + c;
+    // or fma(a, b, c).
+}
 
-    // Shared memory for tiles of A and B
-    __shared__ double Ashared_d[BM][BK];
-    __shared__ double Bshared_d[BK][BN];
+// Double-buffered double kernel
+__global__ void tomoLinearKernelimpD(
+    const double *__restrict__ A,
+    const double *__restrict__ B,
+    size_t M, size_t K, size_t N,
+    const double *__restrict__ bias,
+    double *__restrict__ C)
+{
+    constexpr int BM = TileDims<double>::BM;
+    constexpr int BK = TileDims<double>::BK;
+    constexpr int BN = TileDims<double>::BN;
 
-    // Local array to accumulate sums for the TM x TN sub-tile
+    const int blockRow = blockIdx.y;
+    const int blockCol = blockIdx.x;
+    const int threadRow = threadIdx.y;
+    const int threadCol = threadIdx.x;
+
+    const int globalRow = blockRow * BM;
+    const int globalCol = blockCol * BN;
+
+    __shared__ double As[2][BM][BK];
+    __shared__ double Bs[2][BK][BN];
+
     double sum[TM][TN];
-    for (size_t i = 0; i < TM; i++)
+#pragma unroll
+    for (int i = 0; i < TM; i++)
     {
-        for (size_t j = 0; j < TN; j++)
+#pragma unroll
+        for (int j = 0; j < TN; j++)
         {
-            sum[i][j] = (double)0.0f;
+            sum[i][j] = 0.0;
         }
     }
 
-    // Iterate over the K dimension in steps of BK
-    for (size_t k = 0; k < K; k += BK)
+    const int numTiles = (K + BK - 1) / BK;
+    int tid = threadRow * blockDim.x + threadCol;
+    int tdim = blockDim.x * blockDim.y;
+
+    int loadIdx = 0;
+    int compIdx = 1;
+
+    // First tile load
     {
-        // Load tiles into shared memory
-        size_t tid = threadIdx.y * blockDim.x + threadIdx.x;
-        const size_t elements_per_thread = (BM * BK) / (blockDim.x * blockDim.y); // e.g., 4
-        for (size_t i = 0; i < elements_per_thread; i++)
+        for (int idx = tid; idx < BM * BK; idx += tdim)
         {
-            size_t idx = tid + i * (blockDim.x * blockDim.y);
+            int a_row = idx / BK;
+            int a_col = idx % BK;
+            int ga = globalRow + a_row;
+            int ka = a_col;
+            As[loadIdx][a_row][a_col] =
+                (ga < M && ka < K) ? A[ga * K + ka] : 0.0;
+        }
+        for (int idx = tid; idx < BK * BN; idx += tdim)
+        {
+            int b_row = idx / BN;
+            int b_col = idx % BN;
+            int kb = b_row;
+            int gb = globalCol + b_col;
+            Bs[loadIdx][b_row][b_col] =
+                (kb < K && gb < N) ? B[kb * N + gb] : 0.0;
+        }
+    }
+    __syncthreads();
 
-            // Load A tile
-            if (idx < BM * BK)
+    // Main loop
+    for (int tile = 0; tile < numTiles; tile++)
+    {
+        loadIdx = tile % 2;
+        compIdx = (tile + 1) % 2;
+
+        // Next tile prefetch
+        if (tile < numTiles - 1)
+        {
+            int nextOffset = (tile + 1) * BK;
+            for (int idx = tid; idx < BM * BK; idx += tdim)
             {
-                size_t a_row = idx / BK;
-                size_t a_col = idx % BK;
-                if (blockIdx.y * BM + a_row < M && k + a_col < K)
-                {
-                    Ashared_d[a_row][a_col] = A[(blockIdx.y * BM + a_row) * K + k + a_col];
-                }
-                else
-                {
-                    Ashared_d[a_row][a_col] = (double)0.0f;
-                }
+                int a_row = idx / BK;
+                int a_col = idx % BK;
+                int ga = globalRow + a_row;
+                int ka = nextOffset + a_col;
+                As[compIdx][a_row][a_col] =
+                    (ga < M && ka < K) ? A[ga * K + ka] : 0.0;
             }
-
-            // Load B tile
-            if (idx < BK * BN)
+            for (int idx = tid; idx < BK * BN; idx += tdim)
             {
-                size_t b_row = idx / BN;
-                size_t b_col = idx % BN;
-                if (k + b_row < K && blockIdx.x * BN + b_col < N)
-                {
-                    Bshared_d[b_row][b_col] = B[(k + b_row) * N + blockIdx.x * BN + b_col];
-                }
-                else
-                {
-                    Bshared_d[b_row][b_col] = (double)0.0f;
-                }
+                int b_row = idx / BN;
+                int b_col = idx % BN;
+                int kb = nextOffset + b_row;
+                int gb = globalCol + b_col;
+                Bs[compIdx][b_row][b_col] =
+                    (kb < K && gb < N) ? B[kb * N + gb] : 0.0;
             }
         }
         __syncthreads();
 
-        // Compute partial sums for the TM x TN sub-tile
-        for (size_t m = 0; m < BK; m++)
+// Multiply-accumulate
+#pragma unroll
+        for (int m = 0; m < BK; m++)
         {
-            double a[TM];
-            double b[TN];
-            // Load values from shared memory once per m
-            for (size_t i = 0; i < TM; i++)
+            double aFrag[TM];
+            double bFrag[TN];
+#pragma unroll
+            for (int i = 0; i < TM; i++)
             {
-                a[i] = Ashared_d[y + i][m];
+                int r = threadRow * TM + i;
+                aFrag[i] = As[loadIdx][r][m];
             }
-            for (size_t j = 0; j < TN; j++)
+#pragma unroll
+            for (int j = 0; j < TN; j++)
             {
-                b[j] = Bshared_d[m][x + j];
+                int c = threadCol * TN + j;
+                bFrag[j] = Bs[loadIdx][m][c];
             }
-            // Accumulate products
-            for (size_t i = 0; i < TM; i++)
+#pragma unroll
+            for (int i = 0; i < TM; i++)
             {
-                for (size_t j = 0; j < TN; j++)
+#pragma unroll
+                for (int j = 0; j < TN; j++)
                 {
-                    sum[i][j] = sum[i][j] + a[i] * b[j];
+                    sum[i][j] = doubleFMA(aFrag[i], bFrag[j], sum[i][j]);
                 }
             }
         }
         __syncthreads();
     }
 
-    // Write results to global memory with bias
-    for (size_t i = 0; i < TM; i++)
+// Write out
+#pragma unroll
+    for (int i = 0; i < TM; i++)
     {
-        for (size_t j = 0; j < TN; j++)
+        int rowOut = globalRow + threadRow * TM + i;
+        if (rowOut < M)
         {
-            if (row + i < M && col + j < N)
+#pragma unroll
+            for (int j = 0; j < TN; j++)
             {
-                size_t idx = (row + i) * N + col + j;
-                C[idx] = sum[i][j];
-                if (bias != NULL)
+                int colOut = globalCol + threadCol * TN + j;
+                if (colOut < N)
                 {
-                    C[idx] = C[idx] + bias[idx];
+                    size_t outIdx = rowOut * N + colOut;
+                    double val = sum[i][j];
+                    if (bias != nullptr)
+                    {
+                        val += bias[outIdx];
+                    }
+                    C[outIdx] = val;
                 }
             }
         }
@@ -1463,6 +1761,10 @@ __global__ void tomoLinearKernelimpD(
 template <typename T>
 cudaError_t tomoLinearImp(T const *A, T const *B, size_t M, size_t K, size_t N, T const *bias, T *C, cudaStream_t stream)
 {
+    constexpr int BM = TileDims<T>::BM;
+    // constexpr int BK = TileDims<T>::BK;
+    constexpr int BN = TileDims<T>::BN;
+
     dim3 blockDim(BN / TN, BM / TM); // e.g., (16, 16) with BN=128, BM=128, TN=8, TM=8
     dim3 gridDim((unsigned int)CEIL_DIV(N, BN), (unsigned int)CEIL_DIV(M, BM));
 
@@ -2541,6 +2843,196 @@ cudaError_t tomoCol2im(
     return err;
 }
 
+#include <cuda_runtime.h>
+#include <type_traits> // for std::is_same_v
+
+//------------------------------------------------------------------------------
+// 1D im2col kernel
+//------------------------------------------------------------------------------
+template <typename T>
+__global__ void tomoIm2col1dKernel(
+    T const *__restrict__ d_in, // [N, C, L]
+    T *__restrict__ d_col,      // [N, C, K, outL]
+    size_t n,                   // batch size
+    size_t c,                   // channels
+    size_t l,                   // input length
+    size_t k,                   // kernel size
+    size_t outL,                // output length
+    size_t stride,
+    size_t pad,
+    size_t dilation)
+{
+    // linear index into the total of (n * c * k * outL)
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total = n * c * k * outL;
+    if (idx >= total)
+        return;
+
+    // Unravel idx into 4D coords: (n_idx, c_idx, k_idx, out_idx)
+    // dims = [n, c, k, outL]
+    size_t dims[4] = {n, c, k, outL};
+    size_t coords[4];
+    {
+        size_t tmp = idx;
+        for (int d = 3; d >= 0; --d)
+        {
+            coords[d] = tmp % dims[d];
+            tmp /= dims[d];
+        }
+    }
+    size_t n_idx = coords[0];
+    size_t c_idx = coords[1];
+    size_t k_idx = coords[2];
+    size_t out_idx = coords[3];
+
+    // Compute the corresponding input index:
+    // in_idx = out_idx*stride - pad + k_idx*dilation
+    int in_idx = static_cast<int>(out_idx * stride) - static_cast<int>(pad) + static_cast<int>(k_idx * dilation);
+
+    // read value from input if in range
+    T value = T(0);
+    if (in_idx >= 0 && in_idx < static_cast<int>(l))
+    {
+        size_t in_linear = n_idx * (c * l) + c_idx * l + (size_t)in_idx;
+        value = d_in[in_linear];
+    }
+
+    // write into d_col
+    d_col[idx] = value;
+}
+
+//------------------------------------------------------------------------------
+// 1D col2im kernel
+//------------------------------------------------------------------------------
+template <typename T>
+__global__ void tomoCol2im1dKernel(
+    T const *__restrict__ d_col, // [N, C, K, outL]
+    T *__restrict__ d_in,        // [N, C, L]
+    size_t n,
+    size_t c,
+    size_t l,
+    size_t k,
+    size_t outL,
+    size_t stride,
+    size_t pad,
+    size_t dilation)
+{
+    // linear index into [N, C, K, outL]
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total = n * c * k * outL;
+    if (idx >= total)
+        return;
+
+    // unravel idx -> (n_idx, c_idx, k_idx, out_idx)
+    size_t dims[4] = {n, c, k, outL};
+    size_t coords[4];
+    {
+        size_t tmp = idx;
+        for (int d = 3; d >= 0; --d)
+        {
+            coords[d] = tmp % dims[d];
+            tmp /= dims[d];
+        }
+    }
+    size_t n_idx = coords[0];
+    size_t c_idx = coords[1];
+    size_t k_idx = coords[2];
+    size_t out_idx = coords[3];
+
+    T val = d_col[idx];
+
+    // compute the input index
+    int in_idx = static_cast<int>(out_idx * stride) - static_cast<int>(pad) + static_cast<int>(k_idx * dilation);
+
+    if (in_idx >= 0 && in_idx < static_cast<int>(l))
+    {
+        size_t in_linear = n_idx * (c * l) + c_idx * l + (size_t)in_idx;
+
+        // If you also want half/bfloat16 support with atomicAdd:
+        //   if constexpr (std::is_same_v<T, __half_raw>) { ... }
+        //   else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>) { ... }
+        //   else { atomicAdd(...); }
+
+        if constexpr (std::is_same_v<T, __half_raw>)
+        {
+            atomicAdd(reinterpret_cast<__half *>(&d_in[in_linear]),
+                      static_cast<__half>(val));
+        }
+        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        {
+            atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&d_in[in_linear]),
+                      static_cast<__nv_bfloat16>(val));
+        }
+        else
+        {
+            atomicAdd(&d_in[in_linear], val);
+        }
+    }
+}
+
+template <typename T>
+cudaError_t tomoIm2col1d(
+    T const *d_in,
+    T *d_col,
+    size_t n, // batch
+    size_t c, // channels
+    size_t l, // input length
+    size_t k, // kernel size
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    // compute outL
+    //   outL = floor( (l + 2*pad - (k-1)*dilation - 1) / stride ) + 1
+    size_t outL = (l + 2 * pad - (k - 1) * dilation - 1) / stride + 1;
+
+    // total threads = n*c*k*outL
+    size_t total = n * c * k * outL;
+    int threads = 256;
+    int blocks = (int)((total + threads - 1) / threads);
+
+    tomoIm2col1dKernel<T><<<blocks, threads, 0, stream>>>(
+        d_in, d_col,
+        n, c, l, k, outL,
+        stride, pad, dilation);
+
+    return cudaGetLastError();
+}
+
+template <typename T>
+cudaError_t tomoCol2im1d(
+    T const *d_col,
+    T *d_in,
+    size_t n, // batch
+    size_t c, // channels
+    size_t l, // input length
+    size_t k, // kernel size
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    // Optionally zero out d_in first if you want to sum partial results:
+    cudaError_t err = cudaMemsetAsync(d_in, 0, n * c * l * sizeof(T), stream);
+    if (err != cudaSuccess)
+        return err;
+
+    // compute outL same as above
+    size_t outL = (l + 2 * pad - (k - 1) * dilation - 1) / stride + 1;
+
+    size_t total = n * c * k * outL;
+    int threads = 256;
+    int blocks = (int)((total + threads - 1) / threads);
+
+    tomoCol2im1dKernel<T><<<blocks, threads, 0, stream>>>(
+        d_col, d_in,
+        n, c, l, k, outL,
+        stride, pad, dilation);
+
+    return cudaGetLastError();
+}
+
 // Forward declaration so we can partially specialize.
 template <typename T>
 __device__ inline T deviceInfinity(bool negative);
@@ -2718,9 +3210,9 @@ template <typename T>
 cudaError_t tomoArgmax(
     const T *d_in,
     size_t *d_out,
-    size_t const *in_shape,    size_t in_shape_len,
-    size_t const *out_shape,   size_t out_shape_len,
-    size_t const *in_strides,  size_t in_strides_len,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
     size_t const *out_strides, size_t out_strides_len,
     size_t out_size,
     size_t nd,
@@ -2736,24 +3228,24 @@ cudaError_t tomoArgmax(
     // Allocate device buffers for shapes & strides
     size_t *d_in_shape, *d_out_shape;
     size_t *d_in_strides, *d_out_strides;
-    CHECK_CUDA(cudaMallocAsync(&d_in_shape,    nd * sizeof(size_t), stream));
-    CHECK_CUDA(cudaMallocAsync(&d_out_shape,   nd * sizeof(size_t), stream));
-    CHECK_CUDA(cudaMallocAsync(&d_in_strides,  nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_in_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_out_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_in_strides, nd * sizeof(size_t), stream));
     CHECK_CUDA(cudaMallocAsync(&d_out_strides, nd * sizeof(size_t), stream));
 
     // Copy to device
-    CHECK_CUDA(cudaMemcpyAsync(d_in_shape,    in_shape,    nd * sizeof(size_t),
+    CHECK_CUDA(cudaMemcpyAsync(d_in_shape, in_shape, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
-    CHECK_CUDA(cudaMemcpyAsync(d_out_shape,   out_shape,   nd * sizeof(size_t),
+    CHECK_CUDA(cudaMemcpyAsync(d_out_shape, out_shape, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
-    CHECK_CUDA(cudaMemcpyAsync(d_in_strides,  in_strides,  nd * sizeof(size_t),
+    CHECK_CUDA(cudaMemcpyAsync(d_in_strides, in_strides, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
     CHECK_CUDA(cudaMemcpyAsync(d_out_strides, out_strides, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
 
     // Launch kernel
-    const int threads = 256;  // must be power-of-two for that simple reduction
-    const int blocks  = static_cast<int>(out_size); 
+    const int threads = 256; // must be power-of-two for that simple reduction
+    const int blocks = static_cast<int>(out_size);
     // shared memory:
     //  each thread has a T plus a size_t
     const int smem_sz = threads * (int(sizeof(T)) + int(sizeof(size_t)));
@@ -2765,14 +3257,13 @@ cudaError_t tomoArgmax(
     CHECK_CUDA(cudaGetLastError());
 
     // Cleanup
-    CHECK_CUDA(cudaFreeAsync(d_in_shape,    stream));
-    CHECK_CUDA(cudaFreeAsync(d_out_shape,   stream));
-    CHECK_CUDA(cudaFreeAsync(d_in_strides,  stream));
+    CHECK_CUDA(cudaFreeAsync(d_in_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_out_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_in_strides, stream));
     CHECK_CUDA(cudaFreeAsync(d_out_strides, stream));
 
     return cudaSuccess;
 }
-
 
 template <typename T>
 __global__ void tomoArgminKernel(
@@ -2902,9 +3393,9 @@ template <typename T>
 cudaError_t tomoArgmin(
     const T *d_in,
     size_t *d_out,
-    size_t const *in_shape,    size_t in_shape_len,
-    size_t const *out_shape,   size_t out_shape_len,
-    size_t const *in_strides,  size_t in_strides_len,
+    size_t const *in_shape, size_t in_shape_len,
+    size_t const *out_shape, size_t out_shape_len,
+    size_t const *in_strides, size_t in_strides_len,
     size_t const *out_strides, size_t out_strides_len,
     size_t out_size,
     size_t nd,
@@ -2918,22 +3409,22 @@ cudaError_t tomoArgmin(
 
     size_t *d_in_shape, *d_out_shape;
     size_t *d_in_strides, *d_out_strides;
-    CHECK_CUDA(cudaMallocAsync(&d_in_shape,    nd * sizeof(size_t), stream));
-    CHECK_CUDA(cudaMallocAsync(&d_out_shape,   nd * sizeof(size_t), stream));
-    CHECK_CUDA(cudaMallocAsync(&d_in_strides,  nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_in_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_out_shape, nd * sizeof(size_t), stream));
+    CHECK_CUDA(cudaMallocAsync(&d_in_strides, nd * sizeof(size_t), stream));
     CHECK_CUDA(cudaMallocAsync(&d_out_strides, nd * sizeof(size_t), stream));
 
-    CHECK_CUDA(cudaMemcpyAsync(d_in_shape,    in_shape,    nd * sizeof(size_t),
+    CHECK_CUDA(cudaMemcpyAsync(d_in_shape, in_shape, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
-    CHECK_CUDA(cudaMemcpyAsync(d_out_shape,   out_shape,   nd * sizeof(size_t),
+    CHECK_CUDA(cudaMemcpyAsync(d_out_shape, out_shape, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
-    CHECK_CUDA(cudaMemcpyAsync(d_in_strides,  in_strides,  nd * sizeof(size_t),
+    CHECK_CUDA(cudaMemcpyAsync(d_in_strides, in_strides, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
     CHECK_CUDA(cudaMemcpyAsync(d_out_strides, out_strides, nd * sizeof(size_t),
                                cudaMemcpyHostToDevice, stream));
 
-    const int threads = 256; 
-    const int blocks  = static_cast<int>(out_size);
+    const int threads = 256;
+    const int blocks = static_cast<int>(out_size);
     const int smem_sz = threads * (int(sizeof(T)) + int(sizeof(size_t)));
 
     tomoArgminKernel<T><<<blocks, threads, smem_sz, stream>>>(
@@ -2942,11 +3433,374 @@ cudaError_t tomoArgmin(
         out_size, nd);
     CHECK_CUDA(cudaGetLastError());
 
-    CHECK_CUDA(cudaFreeAsync(d_in_shape,    stream));
-    CHECK_CUDA(cudaFreeAsync(d_out_shape,   stream));
-    CHECK_CUDA(cudaFreeAsync(d_in_strides,  stream));
+    CHECK_CUDA(cudaFreeAsync(d_in_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_out_shape, stream));
+    CHECK_CUDA(cudaFreeAsync(d_in_strides, stream));
     CHECK_CUDA(cudaFreeAsync(d_out_strides, stream));
     return cudaSuccess;
+}
+
+template <typename T>
+__global__ void tomoMaxPool2dForwardKernel(
+    const T *__restrict__ input, // [N, C, H, W]
+    T *__restrict__ output,      // [N, C, outH, outW]
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW)
+{
+    // Each thread corresponds to one element in output: [N, C, outH, outW]
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total = N * C * outH * outW;
+    if (idx >= total)
+        return;
+
+    // unravel idx -> (n, c, oh, ow)
+    size_t ow = idx % outW;
+    size_t tmp = idx / outW;
+    size_t oh = tmp % outH;
+    tmp /= outH;
+    size_t c = tmp % C;
+    size_t n = tmp / C;
+
+    // compute the “start/end” in input image
+    size_t in_start_h = oh * strideH - padH;
+    size_t in_start_w = ow * strideW - padW;
+    size_t in_end_h = in_start_h + kernelH;
+    size_t in_end_w = in_start_w + kernelW;
+
+    // T max_val = static_cast<T>(-FLT_MAX); // or -FLT_MAX for float
+    T max_val = deviceInfinity<T>(true); // or -FLT_MAX for float
+    for (size_t ih = in_start_h; ih < in_end_h; ih++)
+    {
+        for (size_t iw = in_start_w; iw < in_end_w; iw++)
+        {
+            if (ih < H && iw < W)
+            {
+                size_t in_index = (n * C + c) * (H * W) + ih * W + iw;
+                T val = input[in_index];
+                if (val > max_val)
+                {
+                    max_val = val;
+                }
+            }
+        }
+    }
+    output[idx] = max_val;
+}
+
+template <typename T>
+cudaError_t tomoMaxPool2dForward(
+    const T *input,
+    T *output,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    size_t total = N * C * outH * outW;
+    int threads = 256;
+    int blocks = (int)((total + threads - 1) / threads);
+
+    tomoMaxPool2dForwardKernel<T><<<blocks, threads, 0, stream>>>(
+        input, output,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW);
+
+    return cudaGetLastError();
+}
+
+template <typename T>
+__global__ void tomoMaxPool2dBackwardKernel(
+    const T *__restrict__ input,   // [N, C, H, W] (to find max indexes)
+    const T *__restrict__ gradOut, // [N, C, outH, outW]
+    T *gradIn,                     // [N, C, H, W] (to accumulate)
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW)
+{
+    // one thread per (n,c,oh,ow)
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total = N * C * outH * outW;
+    if (idx >= total)
+        return;
+
+    size_t ow = idx % outW;
+    size_t tmp = idx / outW;
+    size_t oh = tmp % outH;
+    tmp /= outH;
+    size_t c = tmp % C;
+    size_t n = tmp / C;
+
+    // figure out region in input
+    size_t in_start_h = oh * strideH - padH;
+    size_t in_start_w = ow * strideW - padW;
+    size_t in_end_h = in_start_h + kernelH;
+    size_t in_end_w = in_start_w + kernelW;
+
+    // find which (ih, iw) had the max
+    T max_val = deviceInfinity<T>(true);
+    ptrdiff_t max_h = -1, max_w = -1;
+    for (size_t ih = in_start_h; ih < in_end_h; ih++)
+    {
+        for (size_t iw = in_start_w; iw < in_end_w; iw++)
+        {
+            if (ih < H && iw < W)
+            {
+                size_t in_index = (n * C + c) * (H * W) + ih * W + iw;
+                T val = input[in_index];
+                if (val > max_val)
+                {
+                    max_val = val;
+                    max_h = (ptrdiff_t)ih;
+                    max_w = (ptrdiff_t)iw;
+                }
+            }
+        }
+    }
+
+    // Add the upstream gradient to that max location
+    T grad_val = gradOut[idx];
+    if (max_h >= 0 && max_w >= 0)
+    {
+        size_t in_index = (n * C + c) * (H * W) + max_h * W + max_w;
+
+        if constexpr (std::is_same_v<T, __half_raw>)
+        {
+            atomicAdd(reinterpret_cast<__half *>(&gradIn[in_index]),
+                      static_cast<__half>(grad_val));
+        }
+        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        {
+            atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gradIn[in_index]),
+                      static_cast<__nv_bfloat16>(grad_val));
+        }
+        else
+        {
+            atomicAdd(&gradIn[in_index], grad_val);
+        }
+    }
+}
+
+template <typename T>
+cudaError_t tomoMaxPool2dBackward(
+    const T *input,
+    const T *gradOut,
+    T *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    // zero gradIn first
+    cudaError_t err = cudaMemsetAsync(gradIn, 0, N * C * H * W * sizeof(T), stream);
+    if (err != cudaSuccess)
+        return err;
+
+    size_t total = (size_t)N * C * outH * outW;
+    int threads = 256;
+    int blocks = (int)((total + threads - 1) / threads);
+
+    tomoMaxPool2dBackwardKernel<T><<<blocks, threads, 0, stream>>>(
+        input, gradOut, gradIn,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW);
+
+    return cudaGetLastError();
+}
+
+template <typename T>
+__global__ void tomoAvgPool2dForwardKernel(
+    const T *__restrict__ input, // [N, C, H, W]
+    T *__restrict__ output,      // [N, C, outH, outW]
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW)
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total = N * C * outH * outW;
+    if (idx >= total)
+        return;
+
+    size_t ow = idx % outW;
+    size_t tmp = idx / outW;
+    size_t oh = tmp % outH;
+    tmp /= outH;
+    size_t c = tmp % C;
+    size_t n = tmp / C;
+
+    size_t in_start_h = oh * strideH - padH;
+    size_t in_start_w = ow * strideW - padW;
+    size_t in_end_h = in_start_h + kernelH;
+    size_t in_end_w = in_start_w + kernelW;
+
+    T sum_val = static_cast<T>(0.0);
+    int count = 0;
+    for (size_t ih = in_start_h; ih < in_end_h; ih++)
+    {
+        for (size_t iw = in_start_w; iw < in_end_w; iw++)
+        {
+            if (ih < H && iw < W)
+            {
+                size_t in_index = (n * C + c) * (H * W) + ih * W + iw;
+                sum_val = sum_val + input[in_index];
+                count++;
+            }
+        }
+    }
+    if (count > 0)
+    {
+        sum_val = sum_val / static_cast<T>(count);
+    }
+    output[idx] = sum_val;
+}
+
+template <typename T>
+cudaError_t tomoAvgPool2dForward(
+    const T *input,
+    T *output,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    size_t total = (size_t)N * C * outH * outW;
+    int threads = 256;
+    int blocks = (int)((total + threads - 1) / threads);
+
+    tomoAvgPool2dForwardKernel<T><<<blocks, threads, 0, stream>>>(
+        input, output,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW);
+
+    return cudaGetLastError();
+}
+
+template <typename T>
+__global__ void tomoAvgPool2dBackwardKernel(
+    const T *__restrict__ gradOut, // [N, C, outH, outW]
+    T *gradIn,                     // [N, C, H, W]
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW)
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total = N * C * outH * outW;
+    if (idx >= total)
+        return;
+
+    size_t ow = idx % outW;
+    size_t tmp = idx / outW;
+    size_t oh = tmp % outH;
+    tmp /= outH;
+    int c = tmp % C;
+    int n = tmp / C;
+
+    T gradVal = gradOut[idx];
+
+    // figure out region in input
+    size_t in_start_h = oh * strideH - padH;
+    size_t in_start_w = ow * strideW - padW;
+    size_t in_end_h = in_start_h + kernelH;
+    size_t in_end_w = in_start_w + kernelW;
+
+    // find how many valid elements are in that region
+    size_t count = 0;
+    for (size_t ih = in_start_h; ih < in_end_h; ih++)
+    {
+        for (size_t iw = in_start_w; iw < in_end_w; iw++)
+        {
+            if (ih < H && iw < W)
+            {
+                count++;
+            }
+        }
+    }
+
+    if (count == 0)
+        return;
+    T factor = gradVal / static_cast<T>(count);
+
+    // distribute
+    for (size_t ih = in_start_h; ih < in_end_h; ih++)
+    {
+        for (size_t iw = in_start_w; iw < in_end_w; iw++)
+        {
+            if (ih < H && iw < W)
+            {
+                size_t in_index = (n * C + c) * (H * W) + ih * W + iw;
+                // atomicAdd(&gradIn[in_index], factor);
+
+                if constexpr (std::is_same_v<T, __half_raw>)
+                {
+                    atomicAdd(reinterpret_cast<__half *>(&gradIn[in_index]),
+                              static_cast<__half>(factor));
+                }
+                else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+                {
+                    atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gradIn[in_index]),
+                              static_cast<__nv_bfloat16>(factor));
+                }
+                else
+                {
+                    atomicAdd(&gradIn[in_index], factor);
+                }
+            }
+        }
+    }
+}
+
+template <typename T>
+cudaError_t tomoAvgPool2dBackward(
+    const T *gradOut,
+    T *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    // zero gradIn
+    cudaError_t err = cudaMemsetAsync(gradIn, 0, (size_t)N * C * H * W * sizeof(T), stream);
+    if (err != cudaSuccess)
+        return err;
+
+    size_t total = N * C * outH * outW;
+    int threads = 256;
+    int blocks = (int)((total + threads - 1) / threads);
+
+    tomoAvgPool2dBackwardKernel<T><<<blocks, threads, 0, stream>>>(
+        gradOut, gradIn,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW);
+
+    return cudaGetLastError();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3960,6 +4814,141 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2imD(
         stream);
 }
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dH(
+    __half_raw const *d_in,
+    __half_raw *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoIm2col1d<__half_raw>(
+        d_in, d_col,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dB(
+    __nv_bfloat16_raw const *d_in,
+    __nv_bfloat16_raw *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoIm2col1d<__nv_bfloat16_raw>(
+        d_in, d_col,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dF(
+    float const *d_in,
+    float *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoIm2col1d<float>(
+        d_in, d_col,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dD(
+    double const *d_in,
+    double *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoIm2col1d<double>(
+        d_in, d_col,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dH(
+    __half_raw const *d_col,
+    __half_raw *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoCol2im1d<__half_raw>(
+        d_col, d_in,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dB(
+    __nv_bfloat16_raw const *d_col,
+    __nv_bfloat16_raw *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoCol2im1d<__nv_bfloat16_raw>(
+        d_col, d_in,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dF(
+    float const *d_col,
+    float *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoCol2im1d<float>(
+        d_col, d_in,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dD(
+    double const *d_col,
+    double *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream)
+{
+    return tomoCol2im1d<double>(
+        d_col, d_in,
+        n, c, l, k,
+        stride, pad, dilation,
+        stream);
+}
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxH(
     const __half_raw *d_in,
     size_t *d_out,
@@ -4152,4 +5141,316 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminD(
         in_strides, in_strides_len,
         out_strides, out_strides_len,
         out_size, nd, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardH(
+    __half_raw const *d_in, __half_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dForward<__half_raw>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardB(
+    __nv_bfloat16_raw const *d_in, __nv_bfloat16_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dForward<__nv_bfloat16_raw>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardF(
+    float const *d_in, float *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dForward<float>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardD(
+    double const *d_in, double *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dForward<double>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardH(
+    const __half_raw *input,
+    const __half_raw *gradOut,
+    __half_raw *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dBackward<__half_raw>(
+        input, gradOut, gradIn,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardB(
+    const __nv_bfloat16_raw *input,
+    const __nv_bfloat16_raw *gradOut,
+    __nv_bfloat16_raw *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dBackward<__nv_bfloat16_raw>(
+        input, gradOut, gradIn,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardF(
+    const float *input,
+    const float *gradOut,
+    float *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dBackward<float>(
+        input, gradOut, gradIn,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardD(
+    const double *input,
+    const double *gradOut,
+    double *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream)
+{
+    return tomoMaxPool2dBackward<double>(
+        input, gradOut, gradIn,
+        N, C, H, W,
+        outH, outW,
+        kernelH, kernelW,
+        strideH, strideW,
+        padH, padW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardH(
+    __half_raw const *d_in, __half_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dForward<__half_raw>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardB(
+    __nv_bfloat16_raw const *d_in, __nv_bfloat16_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dForward<__nv_bfloat16_raw>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardF(
+    float const *d_in, float *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dForward<float>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardD(
+    double const *d_in, double *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dForward<double>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardH(
+    __half_raw const *d_in, __half_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dBackward<__half_raw>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardB(
+    __nv_bfloat16_raw const *d_in, __nv_bfloat16_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dBackward<__nv_bfloat16_raw>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardF(
+    float const *d_in, float *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dBackward<float>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardD(
+    double const *d_in, double *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream)
+{
+    return tomoAvgPool2dBackward<double>(
+        d_in, d_out,
+        N, C, H, W,
+        outH, outW,
+        kH, kW,
+        sH, sW,
+        pH, pW,
+        stream);
 }

@@ -72,6 +72,23 @@ pub fn TensorOpCast(comptime T: type) type {
                         else => unreachable,
                     }
                 },
+                usize => {
+                    switch (U) {
+                        BF16 => {
+                            try err.checkCuda(c.tomoUztoB(self.ptr.?, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                        },
+                        f16 => {
+                            try err.checkCuda(c.tomoUztoH(self.ptr.?, self.calcLen(), stream.stream, @ptrCast(res.ptr)));
+                        },
+                        f32 => {
+                            try err.checkCuda(c.tomoUztoF(self.ptr.?, self.calcLen(), stream.stream, res.ptr));
+                        },
+                        f64 => {
+                            try err.checkCuda(c.tomoUztoD(self.ptr.?, self.calcLen(), stream.stream, res.ptr));
+                        },
+                        else => unreachable,
+                    }
+                },
                 else => unreachable,
             }
 

@@ -107,6 +107,23 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoF(double *a, size_t len, cudaStrea
     return tomoCast(a, len, stream, out);
 }
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoH(size_t *a, size_t len, cudaStream_t stream, __half_raw *out)
+{
+    return tomoCast(a, len, stream, out);
+}
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoB(size_t *a, size_t len, cudaStream_t stream, __nv_bfloat16_raw *out)
+{
+    return tomoCast(a, len, stream, out);
+}
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoF(size_t *a, size_t len, cudaStream_t stream, float *out)
+{
+    return tomoCast(a, len, stream, out);
+}
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoD(size_t *a, size_t len, cudaStream_t stream, double *out)
+{
+    return tomoCast(a, len, stream, out);
+}
+
 TOMO_EXTERN_C TOMO_OPS_API __nv_bfloat16_raw tomoF16ToBf16(__half_raw val)
 {
     return static_cast<__nv_bfloat16>(static_cast<__half>(val));

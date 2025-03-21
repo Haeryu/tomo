@@ -513,6 +513,25 @@ pub fn TensorOpBatch(comptime T: type) type {
             return out_tensor.move();
         }
 
+        fn computeRollaxisPerm(nd: usize, axis: usize, start: usize, perm: []usize) void {
+            var temp_perm: [GPUTensor(T).max_rank]usize = undefined;
+            var idx: usize = 0;
+            for (0..nd) |i| {
+                if (i != axis) {
+                    temp_perm[idx] = i;
+                    idx += 1;
+                }
+            }
+            const adjusted_start = if (start > idx) idx else start;
+            for (0..adjusted_start) |i| {
+                perm[i] = temp_perm[i];
+            }
+            perm[adjusted_start] = axis;
+            for (adjusted_start..nd - 1) |i| {
+                perm[i + 1] = temp_perm[i];
+            }
+        }
+
         pub fn rollaxis(
             self: *const Self,
             axis: usize,
@@ -522,7 +541,16 @@ pub fn TensorOpBatch(comptime T: type) type {
             const in_shape = self.base.getShapeConst();
             const nd = in_shape.len;
 
-            var out_tensor = try Self.initAsync(in_shape, stream);
+            var perm: [GPUTensor(T).max_rank]usize = undefined;
+            computeRollaxisPerm(nd, axis, start, perm[0..nd]);
+
+            // Compute output shape
+            var out_shape: [GPUTensor(T).max_rank]usize = undefined;
+            for (0..nd) |i| {
+                out_shape[i] = in_shape[perm[i]];
+            }
+
+            var out_tensor = try Self.initAsync(out_shape[0..nd], stream);
             errdefer out_tensor.deinitAsync(stream);
 
             switch (T) {
@@ -884,6 +912,591 @@ pub fn TensorOpBatch(comptime T: type) type {
             }
 
             return out_tensor.move();
+        }
+
+        pub fn im2col1d(
+            self: *const Self,
+            kernel_size: usize,
+            stride: usize,
+            padding: usize,
+            dilation: usize,
+            stream: *const Stream,
+        ) !Self {
+            const in_shape = self.base.getShapeConst();
+            if (in_shape.len != 3) {
+                return error.InvalidInputShape; // We expect [N, C, L]
+            }
+
+            const n = in_shape[0];
+            const c_ = in_shape[1];
+            const l = in_shape[2];
+
+            // Compute output length
+            //   out_l = floor((L + 2*pad - (kernel_size-1)*dilation - 1) / stride) + 1
+            const out_l = (l + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1;
+
+            // The output shape for im2col1d is [N, C*k, out_l]
+            const out_shape = &[_]usize{ n, c_ * kernel_size, out_l };
+
+            var out_tensor = try Self.initAsync(out_shape, stream);
+            errdefer out_tensor.deinitAsync(stream);
+
+            // Switch on T to call the correct tomoIm2col1dX function
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoIm2col1dB(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoIm2col1dH(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoIm2col1dF(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoIm2col1dD(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                else => unreachable,
+            }
+
+            return out_tensor.move();
+        }
+
+        pub fn col2im1d(
+            self: *const Self,
+            output_shape: []const usize,
+            kernel_size: usize,
+            stride: usize,
+            padding: usize,
+            dilation: usize,
+            stream: *const Stream,
+        ) !Self {
+            // We expect output_shape to be [N, C, L]
+            if (output_shape.len != 3) {
+                return error.InvalidOutputShape;
+            }
+
+            const n = output_shape[0];
+            const c_ = output_shape[1];
+            const l = output_shape[2];
+
+            var out_tensor = try Self.initAsync(output_shape, stream);
+            errdefer out_tensor.deinitAsync(stream);
+
+            // Switch on T to call the correct tomoCol2im1dX function
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoCol2im1dB(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoCol2im1dH(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoCol2im1dF(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoCol2im1dD(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    n,
+                    c_,
+                    l,
+                    kernel_size,
+                    stride,
+                    padding,
+                    dilation,
+                    stream.stream,
+                )),
+                else => unreachable,
+            }
+
+            return out_tensor.move();
+        }
+
+        pub fn maxPool2dForward(
+            self: *const Self,
+            kernel_size: [2]usize,
+            stride: [2]usize,
+            padding: [2]usize,
+            stream: *const Stream,
+        ) !Self {
+            // Validate input shape = [N, C, H, W]
+            const shape_in = self.base.getShapeConst();
+            if (shape_in.len != 4) return error.InvalidInputShape;
+
+            const N = shape_in[0];
+            const C = shape_in[1];
+            const H = shape_in[2];
+            const W = shape_in[3];
+
+            const kH, const kW = kernel_size;
+            const sH, const sW = stride;
+            const pH, const pW = padding;
+
+            // compute outH, outW for standard forward pooling
+            const outH = (H + 2 * pH - kH) / sH + 1;
+            const outW = (W + 2 * pW - kW) / sW + 1;
+
+            // Allocate output: [N, C, outH, outW]
+            const out_shape = &[_]usize{ N, C, outH, outW };
+            var out_tensor = try Self.initAsync(out_shape, stream);
+            errdefer out_tensor.deinitAsync(stream);
+
+            // Switch on T to call the correct function
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoMaxPool2dForwardB(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoMaxPool2dForwardH(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoMaxPool2dForwardF(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoMaxPool2dForwardD(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                else => unreachable,
+            }
+
+            return out_tensor.move();
+        }
+
+        pub fn maxPool2dBackward(
+            x: *const Self, // forward input, shape [N,C,H,W]
+            gy: *const Self, // upstream gradient, shape [N,C,outH,outW]
+            kernel_size: [2]usize,
+            stride: [2]usize,
+            padding: [2]usize,
+            stream: *const Stream,
+        ) !Self {
+            const shape_in = x.base.getShapeConst();
+            if (shape_in.len != 4) return error.InvalidInputShape;
+            const shape_gy = gy.base.getShapeConst();
+            if (shape_gy.len != 4) return error.InvalidInputShape;
+
+            const N = shape_in[0];
+            const C = shape_in[1];
+            const H = shape_in[2];
+            const W = shape_in[3];
+
+            const outH = shape_gy[2];
+            const outW = shape_gy[3];
+
+            const kH, const kW = kernel_size;
+            const sH, const sW = stride;
+            const pH, const pW = padding;
+
+            // Allocate gx: same shape as x
+            var gx = try Self.initAsync(shape_in, stream);
+            errdefer gx.deinitAsync(stream);
+
+            // Zero-initialize gx
+            try err.checkCuda(c.cudaMemsetAsync(gx.ptr.?, 0, gx.calcLen() * @sizeOf(T), stream.stream));
+
+            // Switch on T, call the correct tomoMaxPool2dBackwardX
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoMaxPool2dBackwardB(
+                    @ptrCast(x.ptr.?),
+                    @ptrCast(gy.ptr.?),
+                    @ptrCast(gx.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoMaxPool2dBackwardH(
+                    @ptrCast(x.ptr.?),
+                    @ptrCast(gy.ptr.?),
+                    @ptrCast(gx.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoMaxPool2dBackwardF(
+                    x.ptr.?,
+                    gy.ptr.?,
+                    gx.ptr.?,
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoMaxPool2dBackwardD(
+                    x.ptr.?,
+                    gy.ptr.?,
+                    gx.ptr.?,
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                else => unreachable,
+            }
+
+            return gx.move();
+        }
+
+        pub fn avgPool2dForward(
+            self: *const Self,
+            kernel_size: [2]usize,
+            stride: [2]usize,
+            padding: [2]usize,
+            stream: *const Stream,
+        ) !Self {
+            // shape_in = [N, C, H, W]
+            const shape_in = self.base.getShapeConst();
+            if (shape_in.len != 4) return error.InvalidInputShape;
+
+            const N = shape_in[0];
+            const C = shape_in[1];
+            const H = shape_in[2];
+            const W = shape_in[3];
+
+            const kH, const kW = kernel_size;
+            const sH, const sW = stride;
+            const pH, const pW = padding;
+
+            // standard formula
+            const outH = (H + 2 * pH - kH) / sH + 1;
+            const outW = (W + 2 * pW - kW) / sW + 1;
+
+            const out_shape = &[_]usize{ N, C, outH, outW };
+            var out_tensor = try Self.initAsync(out_shape, stream);
+            errdefer out_tensor.deinitAsync(stream);
+
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoAvgPool2dForwardB(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoAvgPool2dForwardH(
+                    @ptrCast(self.ptr.?),
+                    @ptrCast(out_tensor.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoAvgPool2dForwardF(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoAvgPool2dForwardD(
+                    self.ptr.?,
+                    out_tensor.ptr.?,
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                else => unreachable,
+            }
+
+            return out_tensor.move();
+        }
+
+        pub fn avgPool2dBackward(
+            gy: *const Self, // [N, C, outH, outW]
+            shape_in: []const usize, // original [N, C, H, W] shape
+            kernel_size: [2]usize,
+            stride: [2]usize,
+            padding: [2]usize,
+            stream: *const Stream,
+        ) !Self {
+            // shape_in = [N,C,H,W]
+            if (shape_in.len != 4) return error.InvalidInputShape;
+
+            const N = shape_in[0];
+            const C = shape_in[1];
+            const H = shape_in[2];
+            const W = shape_in[3];
+
+            const shape_gy = gy.base.getShapeConst();
+            if (shape_gy.len != 4) return error.InvalidInputShape;
+            const outH = shape_gy[2];
+            const outW = shape_gy[3];
+
+            const kH, const kW = kernel_size;
+            const sH, const sW = stride;
+            const pH, const pW = padding;
+
+            // Allocate gX => same shape as input
+            var gX = try Self.initAsync(shape_in, stream);
+            errdefer gX.deinitAsync(stream);
+
+            // zero gX
+            try err.checkCuda(c.cudaMemsetAsync(gX.ptr.?, 0, gX.calcLen() * @sizeOf(T), stream.stream));
+
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoAvgPool2dBackwardB(
+                    @ptrCast(gy.ptr.?),
+                    @ptrCast(gX.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoAvgPool2dBackwardH(
+                    @ptrCast(gy.ptr.?),
+                    @ptrCast(gX.ptr.?),
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoAvgPool2dBackwardF(
+                    gy.ptr.?,
+                    gX.ptr.?,
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoAvgPool2dBackwardD(
+                    N,
+                    C,
+                    H,
+                    W,
+                    outH,
+                    outW,
+                    kH,
+                    kW,
+                    sH,
+                    sW,
+                    pH,
+                    pW,
+                    stream.stream,
+                )),
+                else => unreachable,
+            }
+
+            return gX.move();
         }
     };
 }

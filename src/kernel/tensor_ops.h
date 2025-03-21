@@ -539,6 +539,81 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2imD(
     size_t dx, size_t dy,
     cudaStream_t stream);
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dH(
+    __half_raw const *d_in,
+    __half_raw *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dB(
+    __nv_bfloat16_raw const *d_in,
+    __nv_bfloat16_raw *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dF(
+    float const *d_in,
+    float *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dD(
+    double const *d_in,
+    double *d_col,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dH(
+    __half_raw const *d_col,
+    __half_raw *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dB(
+    __nv_bfloat16_raw const *d_col,
+    __nv_bfloat16_raw *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dF(
+    float const *d_col,
+    float *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dD(
+    double const *d_col,
+    double *d_in,
+    size_t n, size_t c, size_t l,
+    size_t k,
+    size_t stride,
+    size_t pad,
+    size_t dilation,
+    cudaStream_t stream);
+
 // Argmax wrappers
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxH(
@@ -654,4 +729,153 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminD(
     size_t out_strides_len,
     size_t out_size,
     size_t nd,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardH(
+    __half_raw const *d_in, __half_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardB(
+    __nv_bfloat16_raw const *d_in, __nv_bfloat16_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardF(
+    float const *d_in, float *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardD(
+    double const *d_in, double *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardH(
+    const __half_raw *input,
+    const __half_raw *gradOut,
+    __half_raw *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardB(
+    const __nv_bfloat16_raw *input,
+    const __nv_bfloat16_raw *gradOut,
+    __nv_bfloat16_raw *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardF(
+    const float *input,
+    const float *gradOut,
+    float *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardD(
+    const double *input,
+    const double *gradOut,
+    double *gradIn,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kernelH, size_t kernelW,
+    size_t strideH, size_t strideW,
+    size_t padH, size_t padW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardH(
+    __half_raw const *d_in, __half_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardB(
+    __nv_bfloat16_raw const *d_in, __nv_bfloat16_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardF(
+    float const *d_in, float *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardD(
+    double const *d_in, double *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardH(
+    __half_raw const *d_in, __half_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardB(
+    __nv_bfloat16_raw const *d_in, __nv_bfloat16_raw *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardF(
+    float const *d_in, float *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardD(
+    double const *d_in, double *d_out,
+    size_t N, size_t C, size_t H, size_t W,
+    size_t outH, size_t outW,
+    size_t kH, size_t kW,
+    size_t sH, size_t sW,
+    size_t pH, size_t pW,
     cudaStream_t stream);

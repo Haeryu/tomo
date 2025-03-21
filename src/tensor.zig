@@ -16,7 +16,7 @@ pub fn TensorBase(comptime max_rank: comptime_int) type {
         is_contiguous: bool,
         rank: usize,
 
-        comptime max_rank: comptime_int = max_rank,
+        // comptime max_rank: comptime_int = max_rank,
 
         const Self = @This();
 
@@ -173,86 +173,13 @@ pub fn CPUTensor(comptime T: type) type {
             }
         }
 
-        // pub fn transpose(self: *Self, perm: []usize) !void {
-        //     std.debug.assert(perm.len == self.base.rank);
-
-        //     var new_shape: [rank]usize = undefined;
-        //     var new_strides: [rank]usize = undefined;
-
-        //     if (perm.len != rank) {
-        //         return error.InvalidPermutation;
-        //     }
-
-        //     for (perm, 0..) |p, i| {
-        //         new_shape[i] = self.shape[p];
-        //         new_strides[i] = self.strides[p];
-        //     }
-
-        //     self.shape = new_shape;
-        //     self.strides = new_strides;
-
-        //     self.computeContiguity();
-        // }
-
-        // pub fn reshape(
-        //     self: *Self,
-        //     allocator: std.mem.Allocator,
-        //     comptime new_rank: comptime_int,
-        //     new_shape: [new_rank]usize,
-        // ) !CPUTensor(T, new_rank) {
-        //     if (!self.base.is_contiguous) {
-        //         return error.ReshapingNotContiguousTensor;
-        //     }
-
-        //     const old_size = self.base.countElem();
-        //     var new_size: usize = 1;
-        //     for (new_shape) |dim| {
-        //         new_size *= dim;
-        //     }
-
-        //     if (old_size != new_size) return error.InvalidReshape;
-
-        //     var new_tensor = try CPUTensor(T, new_rank).init(allocator, new_shape);
-        //     errdefer new_tensor.deinit(allocator);
-
-        //     new_tensor.write(self.data, 0);
-
-        //     return new_tensor;
-        // }
-
-        // pub fn contiguousHost(self: *Self, allocator: std.mem.Allocator) !Self {
-        //     if (self.is_contiguous) {
-        //         return try self.clone(allocator);
-        //     }
-
-        //     var new_tensor = try Self.init(allocator, self.shape);
-        //     errdefer new_tensor.deinit(allocator);
-
-        //     // Iterate over all elements using multi-dimensional indexing
-        //     var indices: [rank]usize = .{0} ** rank;
-
-        //     while (true) {
-        //         new_tensor.at(indices).* = self.at(indices).*;
-
-        //         // Increment multi-dimensional indices
-        //         var dim: usize = rank;
-        //         while (dim > 0) {
-        //             dim -= 1;
-        //             indices[dim] += 1;
-        //             if (indices[dim] < self.shape[dim]) break;
-        //             indices[dim] = 0;
-        //             if (dim == 0) return new_tensor; // Exit when the last index resets
-        //         }
-        //     }
-        // }
-
         pub fn format(
             self: Self,
             comptime fmt: []const u8,
             _: std.fmt.FormatOptions,
             writer: anytype,
         ) !void {
-            var indices: [self.base.max_rank]usize = .{0} ** self.base.max_rank;
+            var indices: [Self.max_rank]usize = .{0} ** Self.max_rank;
             try self.printRecursive(fmt, &indices, 0, 0, writer);
         }
 
@@ -268,7 +195,7 @@ pub fn CPUTensor(comptime T: type) type {
         fn printRecursive(
             self: *const Self,
             comptime fmt: []const u8,
-            indices: *[self.base.max_rank]usize,
+            indices: *[Self.max_rank]usize,
             depth: usize,
             indent: usize,
             writer: anytype,

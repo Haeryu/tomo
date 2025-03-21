@@ -19,9 +19,41 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 return self.cloneAsync(stream);
             }
 
-            for (self.base.getShapeConst(), new_shape) |in_dim, out_dim| {
-                if (out_dim == 0 or out_dim % in_dim != 0) {
-                    return error.InvalidBroadcast;
+            // for (self.base.getShapeConst(), new_shape) |in_dim, out_dim| {
+            //     if (out_dim == 0 or out_dim % in_dim != 0) {
+            //         return error.InvalidBroadcast;
+            //     }
+            // }
+
+            const self_shape = self.base.getShapeConst();
+            const max_dims = @max(self_shape.len, new_shape.len);
+
+            // Allocate arrays for padded shapes (assuming a reasonable max dimension limit)
+            var padded_self_shape: [GPUTensor(T).max_rank]usize = undefined;
+            var padded_new_shape: [GPUTensor(T).max_rank]usize = undefined;
+
+            // Pad self_shape with 1s on the left
+            for (0..max_dims) |i| {
+                if (i < max_dims - self_shape.len) {
+                    padded_self_shape[i] = 1;
+                } else {
+                    padded_self_shape[i] = self_shape[i - (max_dims - self_shape.len)];
+                }
+            }
+
+            // Pad new_shape with 1s on the left (if needed, though typically new_shape is larger)
+            for (0..max_dims) |i| {
+                if (i < max_dims - new_shape.len) {
+                    padded_new_shape[i] = 1;
+                } else {
+                    padded_new_shape[i] = new_shape[i - (max_dims - new_shape.len)];
+                }
+            }
+
+            // Check compatibility and proceed with broadcasting
+            for (padded_self_shape[0..max_dims], padded_new_shape[0..max_dims]) |in_dim, out_dim| {
+                if (in_dim != out_dim and in_dim != 1) {
+                    return error.BroadcastDimensionMismatch;
                 }
             }
 
@@ -51,15 +83,15 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoBroadcastToH(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape.ptr,
                         new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -198,8 +230,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoSumToH(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape_keepdims.ptr,
                         new_shape_keepdims.len,
                         self.base.getStrides().ptr,
@@ -208,7 +240,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -267,7 +299,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             const target_ndim = shape.len;
             const lead = self.base.getShapeConst().len - target_ndim;
 
-            var lead_axis: [self.base.max_rank]usize = undefined;
+            var lead_axis: [Self.max_rank]usize = undefined;
             var lead_axis_count: usize = 0;
             var i: usize = 0;
             while (i < lead) : (i += 1) {
@@ -275,7 +307,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 lead_axis_count += 1;
             }
 
-            var ones_axis: [self.base.max_rank]usize = undefined;
+            var ones_axis: [Self.max_rank]usize = undefined;
             var ones_axis_count: usize = 0;
             i = 0;
             while (i < target_ndim) : (i += 1) {
@@ -286,7 +318,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 }
             }
 
-            var sum_axes: [self.base.max_rank]isize = undefined;
+            var sum_axes: [Self.max_rank]isize = undefined;
             var sum_axes_count: usize = 0;
             i = 0;
             while (i < lead_axis_count) : (i += 1) {
@@ -368,8 +400,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoMaxToH(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape_keepdims.ptr,
                         new_shape_keepdims.len,
                         self.base.getStrides().ptr,
@@ -378,7 +410,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -568,8 +600,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoArgmaxB(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape_keepdims.ptr,
                         new_shape_keepdims.len,
                         self.base.getStrides().ptr,
@@ -578,7 +610,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         // self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -738,9 +770,26 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             var out = try self.sum(allocator, axes, keepdims, stream);
             errdefer out.deinitAsync(stream);
 
-            try out.scale(1 / @as(T, @floatFromInt(self.calcLen())), stream);
+            try out.scale(1.0 / @as(T, @floatFromInt(self.calcLen())), stream);
 
             return out;
+        }
+
+        pub fn meanInt(
+            self: *const Self,
+            comptime F: type,
+            allocator: std.mem.Allocator,
+            axes: ?[]const isize,
+            keepdims: bool,
+            stream: *const Stream,
+        ) !GPUTensor(F) {
+            // var out = try self.sum(allocator, axes, keepdims, stream);
+            // defer out.deinitAsync(stream);
+
+            var outf = try self.cast(F, stream);
+            errdefer outf.deinitAsync(stream);
+
+            return try outf.mean(allocator, axes, keepdims, stream);
         }
 
         pub fn variance(

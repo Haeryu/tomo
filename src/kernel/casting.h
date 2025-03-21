@@ -20,6 +20,11 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoH(double *a, size_t len, cudaStrea
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoB(double *a, size_t len, cudaStream_t stream, __nv_bfloat16_raw *out);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoF(double *a, size_t len, cudaStream_t stream, float *out);
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoH(size_t *a, size_t len, cudaStream_t stream, __half_raw *out);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoB(size_t *a, size_t len, cudaStream_t stream, __nv_bfloat16_raw *out);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoF(size_t *a, size_t len, cudaStream_t stream, float *out);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoD(size_t *a, size_t len, cudaStream_t stream, double *out);
+
 TOMO_EXTERN_C TOMO_OPS_API __nv_bfloat16_raw tomoF16ToBf16(__half_raw val);
 TOMO_EXTERN_C TOMO_OPS_API __nv_bfloat16_raw tomoF32ToBf16(float val);
 TOMO_EXTERN_C TOMO_OPS_API __nv_bfloat16_raw tomoF64ToBf16(double val);
