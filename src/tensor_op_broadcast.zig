@@ -808,7 +808,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             var m_broad = try m.broadcastTo(x.base.getShapeConst(), stream);
             defer m_broad.deinitAsync(stream);
 
-            try x.sub(m, stream);
+            try x.sub(&m_broad, stream);
             try x.square(stream);
 
             return try x.mean(allocator, axes, keepdims, stream);
