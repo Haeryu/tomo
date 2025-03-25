@@ -410,6 +410,110 @@ pub fn TensorOpBatch(comptime T: type) type {
             return out_tensor.move();
         }
 
+        pub fn tensordotImp(
+            self: *const Self,
+            other: *const Self,
+            allocator: std.mem.Allocator,
+            axes_a: []const usize,
+            axes_b: []const usize,
+            stream: *const Stream,
+        ) !Self {
+            const a_shape = self.base.getShapeConst();
+            const b_shape = other.base.getShapeConst();
+
+            // Validate contraction dimensions
+            if (axes_a.len != axes_b.len) return error.ContractionRankMismatch;
+            for (axes_a, axes_b) |a_dim, b_dim| {
+                if (a_shape[a_dim] != b_shape[b_dim]) return error.ContractionDimensionMismatch;
+            }
+
+            // Check for simple matrix multiplication case
+            if (a_shape.len == 2 and b_shape.len == 2 and
+                axes_a.len == 1 and axes_b.len == 1 and
+                axes_a[0] == 1 and axes_b[0] == 0)
+            {
+                var result = try self.linearImp(other, null, stream);
+                errdefer result.deinitAsync(stream);
+
+                return result.move();
+            }
+
+            // General case: reshape and transpose to use linearImp
+
+            // Step 1: Identify non-contracted axes
+            var a_non_contracted = std.ArrayList(usize).init(allocator);
+            defer a_non_contracted.deinit();
+            for (0..a_shape.len) |i| {
+                if (!std.mem.containsAtLeast(usize, axes_a, 1, &.{i})) {
+                    try a_non_contracted.append(i);
+                }
+            }
+
+            var b_non_contracted = std.ArrayList(usize).init(allocator);
+            defer b_non_contracted.deinit();
+            for (0..b_shape.len) |i| {
+                if (!std.mem.containsAtLeast(usize, axes_b, 1, &.{i})) {
+                    try b_non_contracted.append(i);
+                }
+            }
+
+            // Step 2: Compute sizes for reshaping
+            var a_non_contracted_size: usize = 1;
+            for (a_non_contracted.items) |i| a_non_contracted_size *= a_shape[i];
+            var contracted_size: usize = 1;
+            for (axes_a) |i| contracted_size *= a_shape[i];
+            var b_non_contracted_size: usize = 1;
+            for (b_non_contracted.items) |i| b_non_contracted_size *= b_shape[i];
+
+            // Step 3: Transpose and make contiguous, then reshape for a
+            var a_perm = try allocator.alloc(usize, a_shape.len);
+            defer allocator.free(a_perm);
+            for (a_non_contracted.items, 0..) |ax, i| a_perm[i] = ax;
+            for (axes_a, 0..) |ax, i| a_perm[a_non_contracted.items.len + i] = ax;
+            var a_transposed = try self.transposeEx(allocator, a_perm, stream);
+            defer a_transposed.deinitAsync(stream);
+
+            // Reshape a_transposed to [a_non_contracted_size, contracted_size]
+            var a_reshaped_shape = try allocator.alloc(usize, 2);
+            defer allocator.free(a_reshaped_shape);
+
+            a_reshaped_shape[0] = a_non_contracted_size;
+            a_reshaped_shape[1] = contracted_size;
+            var a_reshaped = &a_transposed;
+            try a_reshaped.reshape(a_reshaped_shape);
+
+            // Step 4: Transpose and make contiguous, then reshape for b
+            var b_perm = try allocator.alloc(usize, b_shape.len);
+            defer allocator.free(b_perm);
+            // Align b's contraction axes order with a's
+            for (axes_b, 0..) |ax, i| b_perm[i] = ax;
+            for (b_non_contracted.items, 0..) |ax, i| b_perm[axes_b.len + i] = ax;
+            var b_transposed = try other.transposeEx(allocator, b_perm, stream);
+            defer b_transposed.deinitAsync(stream);
+
+            // Reshape b_transposed to [contracted_size, b_non_contracted_size]
+            var b_reshaped_shape = try allocator.alloc(usize, 2);
+            defer allocator.free(b_reshaped_shape);
+            b_reshaped_shape[0] = contracted_size;
+            b_reshaped_shape[1] = b_non_contracted_size;
+            var b_reshaped = b_transposed;
+            try b_reshaped.reshape(b_reshaped_shape);
+
+            // Step 5: Perform matrix multiplication
+            var matmul_result = try a_reshaped.linearImp(&b_reshaped, null, stream);
+            errdefer matmul_result.deinitAsync(stream);
+            // No defer here; ownership transferred to result
+
+            // Step 6: Reshape result
+            var out_shape = try allocator.alloc(usize, a_non_contracted.items.len + b_non_contracted.items.len);
+            defer allocator.free(out_shape);
+            for (a_non_contracted.items, 0..) |ax, i| out_shape[i] = a_shape[ax];
+            for (b_non_contracted.items, 0..) |ax, i| out_shape[a_non_contracted.items.len + i] = b_shape[ax];
+            var result = &matmul_result;
+            try result.reshape(out_shape);
+
+            return result.move();
+        }
         pub fn transposeEx(
             self: *const Self,
             allocator: std.mem.Allocator,
@@ -1095,6 +1199,7 @@ pub fn TensorOpBatch(comptime T: type) type {
             const pH, const pW = padding;
 
             // compute outH, outW for standard forward pooling
+
             const outH = (H + 2 * pH - kH) / sH + 1;
             const outW = (W + 2 * pW - kW) / sW + 1;
 

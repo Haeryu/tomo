@@ -138,23 +138,23 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             in_shape: []const usize,
             axes: ?[]const isize,
             keepdims: bool,
-        ) !std.meta.Tuple(&.{ []usize, []usize }) {
+        ) ![]usize {
+            // If `axes` is null, sum over all dimensions [0..in_shape.len).
             if (axes == null) {
-                const axes_all = try allocator.alloc(isize, in_shape.len);
-                defer allocator.free(axes_all);
+                var all_axes = try allocator.alloc(isize, in_shape.len);
+                defer allocator.free(all_axes);
 
                 for (0..in_shape.len) |i| {
-                    axes_all[i] = @intCast(i);
+                    all_axes[i] = @intCast(i);
                 }
-
-                return try computeOutShape(allocator, in_shape, axes_all, keepdims);
+                return computeOutShape(allocator, in_shape, all_axes, keepdims);
             }
 
-            // Allocate a temporary boolean array to mark summed axes.
+            // Mark which axes we're summing.
             var to_sum = try allocator.alloc(bool, in_shape.len);
             defer allocator.free(to_sum);
             @memset(to_sum, false);
-            // Mark each axis specified in `axes`.
+
             for (axes.?) |axis| {
                 var a = axis;
                 if (a < 0) {
@@ -166,29 +166,25 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 to_sum[@intCast(a)] = true;
             }
 
-            // Create an ArrayList to build the output shape.
-            var out = std.ArrayList(usize).init(allocator);
-            defer out.deinit();
+            // Build the output shape
+            var out_arrlist = std.ArrayList(usize).init(allocator);
+            defer out_arrlist.deinit();
 
-            var out_keep_dims_shape = std.ArrayList(usize).init(allocator);
-            defer out_keep_dims_shape.deinit();
-
+            // If keepdims==false, skip those dimensions entirely
+            // If keepdims==true, append "1" for those dimensions
             for (in_shape, 0..) |dim, i| {
                 if (to_sum[i]) {
                     if (keepdims) {
-                        try out.append(1);
+                        try out_arrlist.append(1);
+                    } else {
+                        // skip dimension
                     }
-                    try out_keep_dims_shape.append(1);
                 } else {
-                    try out.append(dim);
-                    try out_keep_dims_shape.append(dim);
+                    try out_arrlist.append(dim);
                 }
             }
 
-            return .{
-                try out.toOwnedSlice(),
-                try out_keep_dims_shape.toOwnedSlice(),
-            };
+            return try out_arrlist.toOwnedSlice();
         }
 
         pub fn sum(
@@ -198,12 +194,11 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(T) {
-            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
+            const new_shape = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
             defer allocator.free(new_shape);
-            defer allocator.free(new_shape_keepdims);
 
             // Always create output with keepdims=true shape
-            var out = try GPUTensor(T).initAsync(new_shape_keepdims, stream);
+            var out = try GPUTensor(T).initAsync(new_shape, stream);
             errdefer out.deinitAsync(stream);
             try out.fill(if (T == Bf16) Bf16.fromF32(0.0) else 0.0, stream);
 
@@ -214,8 +209,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -232,8 +227,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -250,8 +245,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -268,8 +263,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -283,9 +278,9 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 else => unreachable,
             }
 
-            if (!keepdims) {
-                try out.squeeze(allocator);
-            }
+            // if (!keepdims) {
+            //     try out.squeeze(allocator);
+            // }
 
             return out;
         }
@@ -367,12 +362,11 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(T) {
-            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
+            const new_shape = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
             defer allocator.free(new_shape);
-            defer allocator.free(new_shape_keepdims);
 
             // Create output tensor with keepdims=true shape.
-            var out = try GPUTensor(T).initAsync(new_shape_keepdims, stream);
+            var out = try GPUTensor(T).initAsync(new_shape, stream);
             errdefer out.deinitAsync(stream);
             // For max reduction, initialize with negative infinity.
             // try out.fill(if (T == Bf16) Bf16.fromF32(-std.math.inf(f32)) else if (T == f16) -std.math.inf(f32) else -std.math.inf(f32), stream);
@@ -384,8 +378,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -402,8 +396,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -420,8 +414,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -438,8 +432,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -453,9 +447,9 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 else => unreachable,
             }
 
-            if (!keepdims) {
-                try out.squeeze(allocator);
-            }
+            // if (!keepdims) {
+            //     try out.squeeze(allocator);
+            // }
 
             return out;
         }
@@ -467,12 +461,11 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(T) {
-            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
+            const new_shape = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
             defer allocator.free(new_shape);
-            defer allocator.free(new_shape_keepdims);
 
             // Create output tensor with keepdims=true shape.
-            var out = try GPUTensor(T).initAsync(new_shape_keepdims, stream);
+            var out = try GPUTensor(T).initAsync(new_shape, stream);
             errdefer out.deinitAsync(stream);
             // For min reduction, initialize with positive infinity.
             //   try out.fill(if (T == Bf16) Bf16.fromF32(std.math.inf(f32)) else if (T == f16) std.math.inf(f32) else std.math.inf(f32), stream);
@@ -484,8 +477,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -502,8 +495,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -520,8 +513,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -538,8 +531,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -553,9 +546,9 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 else => unreachable,
             }
 
-            if (!keepdims) {
-                try out.squeeze(allocator);
-            }
+            // if (!keepdims) {
+            //     try out.squeeze(allocator);
+            // }
 
             return out;
         }
@@ -567,12 +560,11 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(usize) {
-            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
+            const new_shape = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
             defer allocator.free(new_shape);
-            defer allocator.free(new_shape_keepdims);
 
             // Create output tensor with keepdims=true shape.
-            var out = try GPUTensor(usize).initAsync(new_shape_keepdims, stream);
+            var out = try GPUTensor(usize).initAsync(new_shape, stream);
             errdefer out.deinitAsync(stream);
             // For min reduction, initialize with positive infinity.
             //   try out.fill(if (T == Bf16) Bf16.fromF32(std.math.inf(f32)) else if (T == f16) std.math.inf(f32) else std.math.inf(f32), stream);
@@ -584,8 +576,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -602,8 +594,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -620,8 +612,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -638,8 +630,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -653,9 +645,9 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 else => unreachable,
             }
 
-            if (!keepdims) {
-                try out.squeeze(allocator);
-            }
+            // if (!keepdims) {
+            //     try out.squeeze(allocator);
+            // }
 
             return out;
         }
@@ -667,12 +659,11 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(usize) {
-            const new_shape, const new_shape_keepdims = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
+            const new_shape = try computeOutShape(allocator, self.base.getShapeConst(), axes, keepdims);
             defer allocator.free(new_shape);
-            defer allocator.free(new_shape_keepdims);
 
             // Create output tensor with keepdims=true shape.
-            var out = try GPUTensor(usize).initAsync(new_shape_keepdims, stream);
+            var out = try GPUTensor(usize).initAsync(new_shape, stream);
             errdefer out.deinitAsync(stream);
             // For min reduction, initialize with positive infinity.
             //   try out.fill(if (T == Bf16) Bf16.fromF32(std.math.inf(f32)) else if (T == f16) std.math.inf(f32) else std.math.inf(f32), stream);
@@ -684,8 +675,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -702,8 +693,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         @ptrCast(out.ptr.?),
                         self.base.getShape().ptr,
                         self.base.getShape().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -720,8 +711,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -738,8 +729,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.ptr.?,
                         self.base.getShapeConst().ptr,
                         self.base.getShapeConst().len,
-                        new_shape_keepdims.ptr,
-                        new_shape_keepdims.len,
+                        new_shape.ptr,
+                        new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         out.base.getStrides().ptr,
@@ -753,9 +744,9 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 else => unreachable,
             }
 
-            if (!keepdims) {
-                try out.squeeze(allocator);
-            }
+            // if (!keepdims) {
+            //     try out.squeeze(allocator);
+            // }
 
             return out;
         }
@@ -767,10 +758,32 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             keepdims: bool,
             stream: *const Stream,
         ) !GPUTensor(T) {
+            const shape = self.base.getShapeConst();
+
+            const reduced_axes = axes orelse blk: {
+                const axes_all = try allocator.alloc(isize, shape.len);
+                errdefer allocator.free(axes_all);
+
+                for (0..shape.len) |i| {
+                    axes_all[i] = @intCast(i);
+                }
+
+                break :blk axes_all;
+            };
+            defer if (axes == null) allocator.free(reduced_axes);
+
+            var num_elements: usize = 1;
+            for (reduced_axes) |ax| {
+                const axis: usize = if (ax >= 0) @intCast(ax) else @as(usize, @intCast(ax)) + shape.len;
+                num_elements *= shape[axis];
+            }
+            if (num_elements == 0) num_elements = self.calcLen();
+
             var out = try self.sum(allocator, axes, keepdims, stream);
             errdefer out.deinitAsync(stream);
 
-            try out.scale(1.0 / @as(T, @floatFromInt(self.calcLen())), stream);
+            const scale_factor = 1.0 / @as(T, @floatFromInt(num_elements));
+            try out.scale(scale_factor, stream);
 
             return out;
         }
@@ -787,12 +800,25 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             // defer out.deinitAsync(stream);
 
             var outf = try self.cast(F, stream);
-            errdefer outf.deinitAsync(stream);
+            defer outf.deinitAsync(stream);
 
             return try outf.mean(allocator, axes, keepdims, stream);
         }
 
-        pub fn variance(
+        pub fn countElementsAlongAxes(self: *const Self, axes: ?[]const isize) usize {
+            const shape = self.base.getShapeConst();
+            if (axes == null) {
+                return self.calcLen();
+            }
+            var count: usize = 1;
+            for (axes.?) |ax| {
+                const d: usize = if (ax < 0) @as(usize, @intCast(ax)) + shape.len else @as(usize, @intCast(ax));
+                count *= shape[d];
+            }
+            return count;
+        }
+
+        pub fn varianceBiased(
             self: *const Self,
             allocator: std.mem.Allocator,
             axes: ?[]const isize,
@@ -802,7 +828,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             var x = try self.cloneAsync(stream);
             defer x.deinitAsync(stream);
 
-            var m = try x.mean(allocator, axes, keepdims, stream);
+            var m = try x.mean(allocator, axes, true, stream);
             defer m.deinitAsync(stream);
 
             var m_broad = try m.broadcastTo(x.base.getShapeConst(), stream);
@@ -812,6 +838,26 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             try x.square(stream);
 
             return try x.mean(allocator, axes, keepdims, stream);
+        }
+
+        pub fn varianceUnBiased(
+            self: *const Self,
+            allocator: std.mem.Allocator,
+            axes: ?[]const isize,
+            keepdims: bool,
+            stream: *const Stream,
+        ) !GPUTensor(T) {
+            var biased = try self.varianceBiased(allocator, axes, keepdims, stream);
+            errdefer biased.deinitAsync(stream);
+
+            const n = biased.countElementsAlongAxes(axes);
+            if (n <= 1) return error.InvalidShape;
+
+            // scale out by n/(n-1)
+            const scale_val = @as(T, @floatFromInt(n)) / @as(T, @floatFromInt(n - 1));
+            try biased.scale(@as(T, scale_val), stream);
+
+            return biased.move();
         }
     };
 }

@@ -4,6 +4,7 @@ const err = @import("error.zig");
 const Stream = @import("stream.zig").Stream;
 const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
+const BF16 = @import("bf16.zig").BF16;
 
 pub fn TensorFillRandom(comptime T: type) type {
     return struct {
@@ -17,6 +18,28 @@ pub fn TensorFillRandom(comptime T: type) type {
             try cuda_context.setCurandStream(stream);
 
             switch (T) {
+                BF16 => {
+                    var f32_buf: GPUTensor(f32) = try .initAsync(self.base.getShapeConst(), stream);
+                    defer f32_buf.deinitAsync(stream);
+
+                    try f32_buf.fillUniform(cuda_context, stream);
+
+                    var bf16_buf = try f32_buf.cast(BF16, stream);
+                    defer bf16_buf.deinitAsync(stream);
+
+                    std.mem.swap(?[*]T, &self.ptr, &bf16_buf.ptr);
+                },
+                f16 => {
+                    var f32_buf: GPUTensor(f32) = try .initAsync(self.base.getShapeConst(), stream);
+                    defer f32_buf.deinitAsync(stream);
+
+                    try f32_buf.fillUniform(cuda_context, stream);
+
+                    var f16_buf = try f32_buf.cast(f16, stream);
+                    defer f16_buf.deinitAsync(stream);
+
+                    std.mem.swap(?[*]T, &self.ptr, &f16_buf.ptr);
+                },
                 f32 => {
                     try err.checkCurand(c.curandGenerateUniform(cuda_context.curand_generator, self.ptr.?, self.calcLen()));
                 },
@@ -51,6 +74,28 @@ pub fn TensorFillRandom(comptime T: type) type {
             try cuda_context.setCurandStream(stream);
 
             switch (T) {
+                BF16 => {
+                    var f32_buf: GPUTensor(f32) = try .initAsync(self.base.getShapeConst(), stream);
+                    defer f32_buf.deinitAsync(stream);
+
+                    try f32_buf.fillNormalDistribution(mean, stddev, cuda_context, stream);
+
+                    var bf16_buf = try f32_buf.cast(BF16, stream);
+                    defer bf16_buf.deinitAsync(stream);
+
+                    std.mem.swap(?[*]T, &self.ptr, &bf16_buf.ptr);
+                },
+                f16 => {
+                    var f32_buf: GPUTensor(f32) = try .initAsync(self.base.getShapeConst(), stream);
+                    defer f32_buf.deinitAsync(stream);
+
+                    try f32_buf.fillNormalDistribution(mean, stddev, cuda_context, stream);
+
+                    var f16_buf = try f32_buf.cast(f16, stream);
+                    defer f16_buf.deinitAsync(stream);
+
+                    std.mem.swap(?[*]T, &self.ptr, &f16_buf.ptr);
+                },
                 f32 => {
                     try err.checkCurand(c.curandGenerateNormal(cuda_context.curand_generator, self.ptr.?, self.calcLen(), mean, stddev));
                 },

@@ -7,6 +7,8 @@
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
 
+#include <curand_kernel.h>
+
 // to support __half_raw in future(...maybe far) easily i removed concept
 
 #include "reduction.h"
@@ -81,7 +83,6 @@ __device__ auto tomoInv(auto &val)
 //     tomoBinary<<<blocks_per_grid, threads_per_block, 0, stream>>>(a, b, len, fn_binary);
 //     return cudaGetLastError();
 // }
-
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSinH(__half_raw *a, size_t len, cudaStream_t stream)
 {

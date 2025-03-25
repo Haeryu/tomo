@@ -2843,8 +2843,6 @@ cudaError_t tomoCol2im(
     return err;
 }
 
-#include <cuda_runtime.h>
-#include <type_traits> // for std::is_same_v
 
 //------------------------------------------------------------------------------
 // 1D im2col kernel
@@ -3056,25 +3054,19 @@ __device__ inline double deviceInfinity<double>(bool negative)
 // Specialize for __half_raw
 // We do a simple conversion from float∞ to half∞.
 template <>
-__device__ inline __half_raw deviceInfinity<__half_raw>(bool negative)
-{
-    float inf = negative ? -std::numeric_limits<float>::infinity()
+__device__ inline __half_raw deviceInfinity<__half_raw>(bool negative) {
+    float inf = negative ? -std::numeric_limits<float>::infinity() 
                          : std::numeric_limits<float>::infinity();
-    // This cast depends on your environment; you may need __float2half_rn(inf).
-    // For “raw” half, do a reinterpret if you already have an operator.
-    // If no operator is available, define a custom conversion.
-    // For demonstration, assume direct C-style cast is valid:
-    return (__half_raw)inf;
+    __half h_inf = __float2half(inf);
+    return *reinterpret_cast<__half_raw*>(&h_inf);
 }
 
-// Specialize for __nv_bfloat16_raw
 template <>
-__device__ inline __nv_bfloat16_raw deviceInfinity<__nv_bfloat16_raw>(bool negative)
-{
+__device__ inline __nv_bfloat16_raw deviceInfinity<__nv_bfloat16_raw>(bool negative) {
     float inf = negative ? -std::numeric_limits<float>::infinity()
                          : std::numeric_limits<float>::infinity();
-    // Similarly for bfloat16.
-    return (__nv_bfloat16_raw)inf;
+    __nv_bfloat16 b_inf = __float2bfloat16(inf);
+    return *reinterpret_cast<__nv_bfloat16_raw*>(&b_inf);
 }
 
 template <typename T>
@@ -3442,21 +3434,17 @@ cudaError_t tomoArgmin(
 
 template <typename T>
 __global__ void tomoMaxPool2dForwardKernel(
-    const T *__restrict__ input, // [N, C, H, W]
-    T *__restrict__ output,      // [N, C, outH, outW]
+    const T *__restrict__ input, T *__restrict__ output,
     size_t N, size_t C, size_t H, size_t W,
     size_t outH, size_t outW,
     size_t kernelH, size_t kernelW,
     size_t strideH, size_t strideW,
     size_t padH, size_t padW)
 {
-    // Each thread corresponds to one element in output: [N, C, outH, outW]
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t total = N * C * outH * outW;
-    if (idx >= total)
-        return;
+    if (idx >= total) return;
 
-    // unravel idx -> (n, c, oh, ow)
     size_t ow = idx % outW;
     size_t tmp = idx / outW;
     size_t oh = tmp % outH;
@@ -3464,27 +3452,24 @@ __global__ void tomoMaxPool2dForwardKernel(
     size_t c = tmp % C;
     size_t n = tmp / C;
 
-    // compute the “start/end” in input image
-    size_t in_start_h = oh * strideH - padH;
-    size_t in_start_w = ow * strideW - padW;
-    size_t in_end_h = in_start_h + kernelH;
-    size_t in_end_w = in_start_w + kernelW;
+    // Compute window bounds as signed to handle negative starts
+    ptrdiff_t in_start_h = static_cast<ptrdiff_t>(oh * strideH) - padH;
+    ptrdiff_t in_start_w = static_cast<ptrdiff_t>(ow * strideW) - padW;
+    ptrdiff_t in_end_h = in_start_h + kernelH;
+    ptrdiff_t in_end_w = in_start_w + kernelW;
 
-    // T max_val = static_cast<T>(-FLT_MAX); // or -FLT_MAX for float
-    T max_val = deviceInfinity<T>(true); // or -FLT_MAX for float
-    for (size_t ih = in_start_h; ih < in_end_h; ih++)
-    {
-        for (size_t iw = in_start_w; iw < in_end_w; iw++)
-        {
-            if (ih < H && iw < W)
-            {
-                size_t in_index = (n * C + c) * (H * W) + ih * W + iw;
-                T val = input[in_index];
-                if (val > max_val)
-                {
-                    max_val = val;
-                }
-            }
+    // Clamp to valid input range
+    ptrdiff_t valid_start_h = max(in_start_h, (ptrdiff_t)0);
+    ptrdiff_t valid_end_h = min(in_end_h, static_cast<ptrdiff_t>(H));
+    ptrdiff_t valid_start_w = max(in_start_w, (ptrdiff_t)0);
+    ptrdiff_t valid_end_w = min(in_end_w, static_cast<ptrdiff_t>(W));
+
+    T max_val = deviceInfinity<T>(true);
+    for (ptrdiff_t ih = valid_start_h; ih < valid_end_h; ++ih) {
+        for (ptrdiff_t iw = valid_start_w; iw < valid_end_w; ++iw) {
+            size_t in_index = (n * C + c) * H * W + ih * W + iw;
+            T val = input[in_index];
+            if (val > max_val) max_val = val;
         }
     }
     output[idx] = max_val;
@@ -3518,20 +3503,16 @@ cudaError_t tomoMaxPool2dForward(
 
 template <typename T>
 __global__ void tomoMaxPool2dBackwardKernel(
-    const T *__restrict__ input,   // [N, C, H, W] (to find max indexes)
-    const T *__restrict__ gradOut, // [N, C, outH, outW]
-    T *gradIn,                     // [N, C, H, W] (to accumulate)
+    const T *input, const T *gradOut, T *gradIn,
     size_t N, size_t C, size_t H, size_t W,
     size_t outH, size_t outW,
     size_t kernelH, size_t kernelW,
     size_t strideH, size_t strideW,
     size_t padH, size_t padW)
 {
-    // one thread per (n,c,oh,ow)
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t total = N * C * outH * outW;
-    if (idx >= total)
-        return;
+    if (idx >= total) return;
 
     size_t ow = idx % outW;
     size_t tmp = idx / outW;
@@ -3540,55 +3521,44 @@ __global__ void tomoMaxPool2dBackwardKernel(
     size_t c = tmp % C;
     size_t n = tmp / C;
 
-    // figure out region in input
-    size_t in_start_h = oh * strideH - padH;
-    size_t in_start_w = ow * strideW - padW;
-    size_t in_end_h = in_start_h + kernelH;
-    size_t in_end_w = in_start_w + kernelW;
+    ptrdiff_t in_start_h = static_cast<ptrdiff_t>(oh * strideH) - padH;
+    ptrdiff_t in_start_w = static_cast<ptrdiff_t>(ow * strideW) - padW;
+    ptrdiff_t in_end_h = in_start_h + kernelH;
+    ptrdiff_t in_end_w = in_start_w + kernelW;
 
-    // find which (ih, iw) had the max
+    ptrdiff_t valid_start_h = max(in_start_h, (ptrdiff_t)0);
+    ptrdiff_t valid_end_h = min(in_end_h, static_cast<ptrdiff_t>(H));
+    ptrdiff_t valid_start_w = max(in_start_w, (ptrdiff_t)0);
+    ptrdiff_t valid_end_w = min(in_end_w, static_cast<ptrdiff_t>(W));
+
     T max_val = deviceInfinity<T>(true);
     ptrdiff_t max_h = -1, max_w = -1;
-    for (size_t ih = in_start_h; ih < in_end_h; ih++)
-    {
-        for (size_t iw = in_start_w; iw < in_end_w; iw++)
-        {
-            if (ih < H && iw < W)
-            {
-                size_t in_index = (n * C + c) * (H * W) + ih * W + iw;
-                T val = input[in_index];
-                if (val > max_val)
-                {
-                    max_val = val;
-                    max_h = (ptrdiff_t)ih;
-                    max_w = (ptrdiff_t)iw;
-                }
+    for (ptrdiff_t ih = valid_start_h; ih < valid_end_h; ++ih) {
+        for (ptrdiff_t iw = valid_start_w; iw < valid_end_w; ++iw) {
+            size_t in_index = (n * C + c) * H * W + ih * W + iw;
+            T val = input[in_index];
+            if (val > max_val) {
+                max_val = val;
+                max_h = ih;
+                max_w = iw;
             }
         }
     }
 
-    // Add the upstream gradient to that max location
-    T grad_val = gradOut[idx];
-    if (max_h >= 0 && max_w >= 0)
-    {
-        size_t in_index = (n * C + c) * (H * W) + max_h * W + max_w;
-
-        if constexpr (std::is_same_v<T, __half_raw>)
-        {
-            atomicAdd(reinterpret_cast<__half *>(&gradIn[in_index]),
-                      static_cast<__half>(grad_val));
-        }
-        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
-        {
-            atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gradIn[in_index]),
-                      static_cast<__nv_bfloat16>(grad_val));
-        }
-        else
-        {
+    if (max_h >= 0 && max_w >= 0) {
+        size_t in_index = (n * C + c) * H * W + max_h * W + max_w;
+        T grad_val = gradOut[idx];
+        // Atomic add with type handling
+        if constexpr (std::is_same_v<T, __half_raw>) {
+            atomicAdd(reinterpret_cast<__half*>(&gradIn[in_index]), __half(grad_val));
+        } else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>) {
+            atomicAdd(reinterpret_cast<__nv_bfloat16*>(&gradIn[in_index]), __nv_bfloat16(grad_val));
+        } else {
             atomicAdd(&gradIn[in_index], grad_val);
         }
     }
 }
+
 
 template <typename T>
 cudaError_t tomoMaxPool2dBackward(

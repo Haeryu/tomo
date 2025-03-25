@@ -255,6 +255,8 @@ pub fn GPUTensor(comptime T: type) type {
 
         pub const invalid: Self = .{};
 
+        // pub var count: usize = 0;
+
         pub const Slice = struct {
             start: ?isize = null,
             stop: ?isize = null,
@@ -334,6 +336,7 @@ pub fn GPUTensor(comptime T: type) type {
             const base = Base.init(shape);
             var ptr: ?[*]T = null;
             try err.checkCuda(c.cudaMallocAsync(@ptrCast(&ptr), base.countElem() * @sizeOf(T), stream.stream));
+            //   count += 1;
             return .{
                 .ptr = ptr,
                 .base = base,
@@ -349,6 +352,7 @@ pub fn GPUTensor(comptime T: type) type {
 
         pub fn deinitAsync(self: *Self, stream: *const Stream) void {
             if (self.ptr) |ptr| {
+                //   count -= 1;
                 _ = c.cudaFreeAsync(@ptrCast(ptr), stream.stream);
                 self.ptr = null;
             }
@@ -412,11 +416,7 @@ pub fn GPUTensor(comptime T: type) type {
             return cloned;
         }
 
-        pub fn reshape(
-            self: *const Self,
-            new_shape: []const usize,
-            stream: *const Stream,
-        ) !Self {
+        pub fn reshape(self: *Self, new_shape: []const usize) !void {
             const old_size = self.base.countElem();
             var new_size: usize = 1;
             for (new_shape) |dim| {
@@ -425,12 +425,7 @@ pub fn GPUTensor(comptime T: type) type {
 
             if (old_size != new_size) return error.InvalidReshape;
 
-            var new_tensor: GPUTensor(T) = try .initAsync(new_shape, stream);
-            errdefer new_tensor.deinitAsync(stream);
-
-            try new_tensor.writeAsync(self.ptr.?, self.calcLen(), 0, stream);
-
-            return new_tensor.move();
+            self.base = Base.init(new_shape);
         }
 
         // TODO

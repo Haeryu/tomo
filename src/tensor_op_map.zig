@@ -598,10 +598,10 @@ pub fn TensorOpMap(comptime T: type) type {
         ) !void {
             switch (T) {
                 Bf16 => {
-                    try err.checkCuda(c.tomoScaleShiftB(@ptrCast(self.ptr.?), self.calcLen(), factor, offset, stream.stream));
+                    try err.checkCuda(c.tomoScaleShiftB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(factor), @bitCast(offset), stream.stream));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoScaleShiftH(@ptrCast(self.ptr.?), self.calcLen(), factor, offset, stream.stream));
+                    try err.checkCuda(c.tomoScaleShiftH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(factor), @bitCast(offset), stream.stream));
                 },
                 f32 => {
                     try err.checkCuda(c.tomoScaleShiftF(self.ptr.?, self.calcLen(), factor, offset, stream.stream));
