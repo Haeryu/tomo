@@ -118,6 +118,121 @@ pub fn TensorOpBatch(comptime T: type) type {
             return items.move();
         }
 
+        pub fn setItem(self: *Self, allocator: std.mem.Allocator, slices: []const Self.Slice, src: *const Self, stream: *const Stream) !void {
+            // Validate that the number of slices matches the tensor's dimensions
+            if (slices.len != self.base.getShapeConst().len) return error.InvalidSlices;
+            if (src.base.getShapeConst().len != slices.len) return error.InvalidSourceShape;
+
+            // Compute the expected shape of the source tensor based on the slices
+            const expected_shape = try Self.Slice.computeOutputShapeAlloc(allocator, self.base.getShapeConst(), slices);
+            defer allocator.free(expected_shape);
+
+            // Validate that the source tensor's shape matches the expected shape
+            for (expected_shape, 0..) |dim, i| {
+                if (dim != src.base.getShapeConst()[i]) return error.ShapeMismatch;
+            }
+
+            // Allocate arrays for starts and steps
+            const starts = try allocator.alloc(usize, self.base.getShapeConst().len);
+            defer allocator.free(starts);
+
+            const steps = try allocator.alloc(usize, self.base.getShapeConst().len);
+            defer allocator.free(steps);
+
+            // Compute starts and steps for each dimension
+            for (slices, 0..) |s, d| {
+                const start = s.start orelse 0;
+                const dim = self.base.getShapeConst()[d];
+                const adjusted_start = if (start < 0) start + @as(isize, @intCast(dim)) else start;
+                starts[d] = @intCast(std.math.clamp(adjusted_start, @as(isize, 0), @as(isize, @intCast(dim))));
+                steps[d] = @intCast(s.step orelse 1);
+            }
+
+            // Calculate the total number of elements in the source tensor
+            const src_size = src.calcLen();
+
+            // Call the appropriate CUDA function based on the tensor's data type
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoSetItemB(
+                    @ptrCast(src.ptr.?),
+                    @ptrCast(self.ptr.?),
+                    src.base.getShapeConst().ptr,
+                    src.base.getShapeConst().len,
+                    self.base.getShapeConst().ptr,
+                    self.base.getShapeConst().len,
+                    src.base.getStrides().ptr,
+                    src.base.getStrides().len,
+                    self.base.getStrides().ptr,
+                    self.base.getStrides().len,
+                    starts.ptr,
+                    starts.len,
+                    steps.ptr,
+                    steps.len,
+                    slices.len,
+                    src_size,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoSetItemH(
+                    @ptrCast(src.ptr.?),
+                    @ptrCast(self.ptr.?),
+                    src.base.getShapeConst().ptr,
+                    src.base.getShapeConst().len,
+                    self.base.getShapeConst().ptr,
+                    self.base.getShapeConst().len,
+                    src.base.getStrides().ptr,
+                    src.base.getStrides().len,
+                    self.base.getStrides().ptr,
+                    self.base.getStrides().len,
+                    starts.ptr,
+                    starts.len,
+                    steps.ptr,
+                    steps.len,
+                    slices.len,
+                    src_size,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoSetItemF(
+                    src.ptr.?,
+                    self.ptr.?,
+                    src.base.getShapeConst().ptr,
+                    src.base.getShapeConst().len,
+                    self.base.getShapeConst().ptr,
+                    self.base.getShapeConst().len,
+                    src.base.getStrides().ptr,
+                    src.base.getStrides().len,
+                    self.base.getStrides().ptr,
+                    self.base.getStrides().len,
+                    starts.ptr,
+                    starts.len,
+                    steps.ptr,
+                    steps.len,
+                    slices.len,
+                    src_size,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoSetItemD(
+                    src.ptr.?,
+                    self.ptr.?,
+                    src.base.getShapeConst().ptr,
+                    src.base.getShapeConst().len,
+                    self.base.getShapeConst().ptr,
+                    self.base.getShapeConst().len,
+                    src.base.getStrides().ptr,
+                    src.base.getStrides().len,
+                    self.base.getStrides().ptr,
+                    self.base.getStrides().len,
+                    starts.ptr,
+                    starts.len,
+                    steps.ptr,
+                    steps.len,
+                    slices.len,
+                    src_size,
+                    stream.stream,
+                )),
+                else => unreachable,
+            }
+        }
+
         pub fn getItemGrad(self: *const Self, allocator: std.mem.Allocator, slices: []const Self.Slice, gy: *const Self, stream: *const Stream) !Self {
             if (slices.len != self.base.getShapeConst().len) return error.InvalidSlices;
 
@@ -1602,6 +1717,133 @@ pub fn TensorOpBatch(comptime T: type) type {
             }
 
             return gX.move();
+        }
+
+        pub fn embeddingForward(
+            weight: *const GPUTensor(T),
+            indices: *const GPUTensor(usize),
+            stream: *const Stream,
+        ) !GPUTensor(T) {
+            // Extract shapes from input tensors
+            const num_embeddings = weight.base.getShapeConst()[0];
+            const embedding_dim = weight.base.getShapeConst()[1];
+            const batch_size = indices.base.getShapeConst()[0];
+            const sequence_length = indices.base.getShapeConst()[1];
+
+            // Create output tensor with shape [batch_size, sequence_length, embedding_dim]
+            var output = try GPUTensor(T).initAsync(&[_]usize{ batch_size, sequence_length, embedding_dim }, stream);
+            errdefer output.deinitAsync(stream);
+
+            // Call the appropriate C function based on the data type T
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoEmbeddingForwardB(
+                    @ptrCast(weight.ptr.?), // Cast to raw Bf16 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    @ptrCast(output.ptr.?), // Cast to raw Bf16 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoEmbeddingForwardH(
+                    @ptrCast(weight.ptr.?), // Cast to raw f16 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    @ptrCast(output.ptr.?), // Cast to raw f16 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoEmbeddingForwardF(
+                    weight.ptr.?, // Direct f32 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    output.ptr.?, // Direct f32 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoEmbeddingForwardD(
+                    weight.ptr.?, // Direct f64 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    output.ptr.?, // Direct f64 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                else => unreachable, // Only Bf16, f16, f32, f64 are supported
+            }
+
+            // Return the output tensor, transferring ownership
+            return output.move();
+        }
+
+        pub fn embeddingBackward(
+            grad_output: *const GPUTensor(T),
+            indices: *const GPUTensor(usize),
+            num_embeddings: usize,
+            stream: *const Stream,
+        ) !GPUTensor(T) {
+            // Extract shapes from input tensors
+            const batch_size = grad_output.base.getShapeConst()[0];
+            const sequence_length = grad_output.base.getShapeConst()[1];
+            const embedding_dim = grad_output.base.getShapeConst()[2];
+
+            var grad_weight = try GPUTensor(T).initAsync(&[_]usize{ num_embeddings, embedding_dim }, stream);
+            errdefer grad_weight.deinitAsync(stream);
+            try grad_weight.fill(0.0, stream);
+
+            // Call the appropriate C function based on the data type T
+            switch (T) {
+                Bf16 => try err.checkCuda(c.tomoEmbeddingBackwardB(
+                    @ptrCast(grad_output.ptr.?), // Cast to raw Bf16 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    @ptrCast(grad_weight.ptr.?), // Cast to raw Bf16 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                f16 => try err.checkCuda(c.tomoEmbeddingBackwardH(
+                    @ptrCast(grad_output.ptr.?), // Cast to raw f16 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    @ptrCast(grad_weight.ptr.?), // Cast to raw f16 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                f32 => try err.checkCuda(c.tomoEmbeddingBackwardF(
+                    grad_output.ptr.?, // Direct f32 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    grad_weight.ptr.?, // Direct f32 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                f64 => try err.checkCuda(c.tomoEmbeddingBackwardD(
+                    grad_output.ptr.?, // Direct f64 pointer
+                    indices.ptr.?, // Direct usize pointer
+                    grad_weight.ptr.?, // Direct f64 pointer
+                    num_embeddings,
+                    embedding_dim,
+                    batch_size,
+                    sequence_length,
+                    stream.stream,
+                )),
+                else => unreachable, // Only Bf16, f16, f32, f64 are supported
+            }
+
+            return grad_weight.move();
         }
     };
 }

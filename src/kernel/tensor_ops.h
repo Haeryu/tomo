@@ -82,6 +82,20 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBroadcastToD(
     size_t nd,
     cudaStream_t stream);
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBroadcastToUZ(
+    size_t const *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream);
+
 ////////////////////////////////////////////////////////////////////////////////
 // SUM-TO WRAPPERS
 ////////////////////////////////////////////////////////////////////////////////
@@ -156,16 +170,16 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearD(
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpH(
     __half_raw const *A, __half_raw const *B, size_t M, size_t K, size_t N,
-    __half_raw const *bias, __half_raw *C, cudaStream_t stream);
+    __half_raw const *bias, __half_raw *C, size_t batch_size, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpB(
     __nv_bfloat16_raw const *A, __nv_bfloat16_raw const *B, size_t M, size_t K, size_t N,
-    __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C, cudaStream_t stream);
+    __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C, size_t batch_size, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpF(
     float const *A, float const *B, size_t M, size_t K, size_t N,
-    float const *bias, float *C, cudaStream_t stream);
+    float const *bias, float *C, size_t batch_size, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpD(
     double const *A, double const *B, size_t M, size_t K, size_t N,
-    double const *bias, double *C, cudaStream_t stream);
+    double const *bias, double *C, size_t batch_size, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeH(__half_raw const *A, size_t M, size_t N, __half_raw *C, cudaStream_t stream);
 
@@ -878,4 +892,85 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardD(
     size_t kH, size_t kW,
     size_t sH, size_t sW,
     size_t pH, size_t pW,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardH(
+    __half_raw *weight,
+    const size_t *indices,
+    __half_raw *output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardB(
+    __nv_bfloat16_raw *weight,
+    const size_t *indices,
+    __nv_bfloat16_raw *output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardF(
+    float *weight,
+    const size_t *indices,
+    float *output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardD(
+    double *weight,
+    const size_t *indices,
+    double *output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream);
+// C Wrappers for embedding backward.
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardH(
+    const __half_raw *grad_output,
+    const size_t *indices,
+    __half_raw *grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardB(
+    const __nv_bfloat16_raw *grad_output,
+    const size_t *indices,
+    __nv_bfloat16_raw *grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardF(
+    const float *grad_output,
+    const size_t *indices,
+    float *grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardD(
+    const double *grad_output,
+    const size_t *indices,
+    double *grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
     cudaStream_t stream);

@@ -6,6 +6,10 @@
 #include <thrust/reduce.h>
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
+#include <thrust/transform.h>
+#include <thrust/tuple.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 
 #include <curand_kernel.h>
 
@@ -954,6 +958,12 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtD(double *a, size_t len, double num
                            { return (double)!!(x > num); }, stream);
 }
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtUZ(size_t *a, size_t len, size_t num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(size_t const &x)
+                           { return (size_t)!!(x > num); }, stream);
+}
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
@@ -976,6 +986,12 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqD(double *a, size_t len, double n
 {
     return tomoElemwiseMap(a, len, [=] __device__(double const &x)
                            { return (double)!!(x >= num); }, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(size_t const &x)
+                           { return (size_t)!!(x >= num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
@@ -1002,6 +1018,12 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtD(double *a, size_t len, double num
                            { return (double)!!(x < num); }, stream);
 }
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtUZ(size_t *a, size_t len, size_t num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(size_t const &x)
+                           { return (size_t)!!(x < num); }, stream);
+}
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
@@ -1026,6 +1048,12 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqD(double *a, size_t len, double n
                            { return (double)!!(x <= num); }, stream);
 }
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(size_t const &x)
+                           { return (size_t)!!(x <= num); }, stream);
+}
+
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
@@ -1048,4 +1076,361 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqD(double *a, size_t len, double num
 {
     return tomoElemwiseMap(a, len, [=] __device__(double const &x)
                            { return (double)!!(x == num); }, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(size_t const &x)
+                           { return (size_t)!!(x == num); }, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
+                           { return (__half_raw) !!(x != num); }, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(__nv_bfloat16_raw const &x)
+                           { return (__nv_bfloat16_raw) !!(x != num); }, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqF(float *a, size_t len, float num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(float const &x)
+                           { return (float)!!(x != num); }, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqD(double *a, size_t len, double num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(double const &x)
+                           { return (double)!!(x != num); }, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream)
+{
+    return tomoElemwiseMap(a, len, [=] __device__(size_t const &x)
+                           { return (size_t)!!(x != num); }, stream);
+}
+
+template <typename T>
+cudaError_t tomoMaskedFill(
+    T *data,            // [in,out] data to fill in-place
+    T const *mask,      // [in] mask array (same length as data)
+    T fillValue,        // the value to assign where mask != 0
+    size_t len,         // number of elements
+    cudaStream_t stream // CUDA stream
+)
+{
+    if (!data || !mask || len == 0)
+    {
+        return cudaErrorInvalidValue;
+    }
+
+    try
+    {
+        // We zip (data, mask) together and transform into data (in-place).
+        thrust::transform(
+            thrust::cuda::par_nosync.on(stream),
+            thrust::make_zip_iterator(thrust::make_tuple(data, mask)),
+            thrust::make_zip_iterator(thrust::make_tuple(data + len, mask + len)),
+            data,
+            [=] __device__(thrust::tuple<T, T> const &t) -> T
+            {
+                T d = thrust::get<0>(t); // from data
+                T m = thrust::get<1>(t); // from mask
+                return (m != T{}) ? fillValue : d;
+            });
+    }
+    catch (const thrust::system_error &e)
+    {
+        // Convert Thrust exceptions to cudaError_t
+        if (e.code().category() == thrust::cuda_category())
+        {
+            return static_cast<cudaError_t>(e.code().value());
+        }
+        else
+        {
+            return cudaErrorUnknown;
+        }
+    }
+    catch (...)
+    {
+        return cudaErrorUnknown;
+    }
+
+    return cudaSuccess;
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillH(
+    __half_raw *data,
+    __half_raw const *mask,
+    __half_raw fillValue,
+    size_t len,
+    cudaStream_t stream)
+{
+    return tomoMaskedFill<__half_raw>(data, mask, fillValue, len, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillB(
+    __nv_bfloat16_raw *data,
+    __nv_bfloat16_raw const *mask,
+    __nv_bfloat16_raw fillValue,
+    size_t len,
+    cudaStream_t stream)
+{
+    return tomoMaskedFill<__nv_bfloat16_raw>(data, mask, fillValue, len, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillF(
+    float *data,
+    float const *mask,
+    float fillValue,
+    size_t len,
+    cudaStream_t stream)
+{
+    return tomoMaskedFill<float>(data, mask, fillValue, len, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillD(
+    double *data,
+    double const *mask,
+    double fillValue,
+    size_t len,
+    cudaStream_t stream)
+{
+    return tomoMaskedFill<double>(data, mask, fillValue, len, stream);
+}
+
+template <typename T>
+cudaError_t tomoTril(
+    T *data,     // [in,out] matrix stored in row-major order
+    size_t rows, // number of rows
+    size_t cols, // number of columns
+    T fillValue, // value to assign in the upper triangle (j > i)
+    cudaStream_t stream)
+{
+    size_t len = rows * cols;
+    try
+    {
+        auto first = thrust::make_zip_iterator(thrust::make_tuple(
+            data, thrust::make_counting_iterator<size_t>(0)));
+        auto last = thrust::make_zip_iterator(thrust::make_tuple(
+            data + len, thrust::make_counting_iterator<size_t>(len)));
+        thrust::transform(
+            thrust::cuda::par_nosync.on(stream),
+            first,
+            last,
+            data, // output to the same data pointer (in-place)
+            [=] __device__(thrust::tuple<T, size_t> const &t) -> T
+            {
+                T d = thrust::get<0>(t);
+                size_t idx = thrust::get<1>(t);
+                size_t i = idx / cols;
+                size_t j = idx % cols;
+                // For lower triangular (tril): if j > i, we're in the upper triangle.
+                return (j > i) ? fillValue : d;
+            });
+    }
+    catch (const thrust::system_error &e)
+    {
+        if (e.code().category() == thrust::cuda_category())
+            return static_cast<cudaError_t>(e.code().value());
+        else
+            return cudaErrorUnknown;
+    }
+    catch (...)
+    {
+        return cudaErrorUnknown;
+    }
+    return cudaSuccess;
+}
+
+template <typename T>
+cudaError_t tomoTriu(
+    T *data,     // [in,out] matrix stored in row-major order
+    size_t rows, // number of rows
+    size_t cols, // number of columns
+    T fillValue, // value to assign in the lower triangle (i > j)
+    cudaStream_t stream)
+{
+    size_t len = rows * cols;
+    try
+    {
+        auto first = thrust::make_zip_iterator(thrust::make_tuple(
+            data, thrust::make_counting_iterator<size_t>(0)));
+        auto last = thrust::make_zip_iterator(thrust::make_tuple(
+            data + len, thrust::make_counting_iterator<size_t>(len)));
+        thrust::transform(
+            thrust::cuda::par_nosync.on(stream),
+            first,
+            last,
+            data, // in-place output
+            [=] __device__(thrust::tuple<T, size_t> const &t) -> T
+            {
+                T d = thrust::get<0>(t);
+                size_t idx = thrust::get<1>(t);
+                size_t i = idx / cols;
+                size_t j = idx % cols;
+                // For upper triangular (triu): if i > j, we're in the lower triangle.
+                return (i > j) ? fillValue : d;
+            });
+    }
+    catch (const thrust::system_error &e)
+    {
+        if (e.code().category() == thrust::cuda_category())
+            return static_cast<cudaError_t>(e.code().value());
+        else
+            return cudaErrorUnknown;
+    }
+    catch (...)
+    {
+        return cudaErrorUnknown;
+    }
+    return cudaSuccess;
+}
+
+// For __half (assuming __half_raw is defined as in your environment)
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilH(
+    __half_raw *data,
+    size_t rows,
+    size_t cols,
+    __half_raw fillValue,
+    cudaStream_t stream)
+{
+    return tomoTril<__half_raw>(data, rows, cols, fillValue, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuH(
+    __half_raw *data,
+    size_t rows,
+    size_t cols,
+    __half_raw fillValue,
+    cudaStream_t stream)
+{
+    return tomoTriu<__half_raw>(data, rows, cols, fillValue, stream);
+}
+
+// For __nv_bfloat16 (assuming __nv_bfloat16_raw is defined appropriately)
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilB(
+    __nv_bfloat16_raw *data,
+    size_t rows,
+    size_t cols,
+    __nv_bfloat16_raw fillValue,
+    cudaStream_t stream)
+{
+    return tomoTril<__nv_bfloat16_raw>(data, rows, cols, fillValue, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuB(
+    __nv_bfloat16_raw *data,
+    size_t rows,
+    size_t cols,
+    __nv_bfloat16_raw fillValue,
+    cudaStream_t stream)
+{
+    return tomoTriu<__nv_bfloat16_raw>(data, rows, cols, fillValue, stream);
+}
+
+// For float
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilF(
+    float *data,
+    size_t rows,
+    size_t cols,
+    float fillValue,
+    cudaStream_t stream)
+{
+    return tomoTril<float>(data, rows, cols, fillValue, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuF(
+    float *data,
+    size_t rows,
+    size_t cols,
+    float fillValue,
+    cudaStream_t stream)
+{
+    return tomoTriu<float>(data, rows, cols, fillValue, stream);
+}
+
+// For double
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilD(
+    double *data,
+    size_t rows,
+    size_t cols,
+    double fillValue,
+    cudaStream_t stream)
+{
+    return tomoTril<double>(data, rows, cols, fillValue, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuD(
+    double *data,
+    size_t rows,
+    size_t cols,
+    double fillValue,
+    cudaStream_t stream)
+{
+    return tomoTriu<double>(data, rows, cols, fillValue, stream);
+}
+
+// CUDA kernel to generate the sequence
+template <typename T>
+__global__ void tomoArangeKernel(T *output, T start, T step, size_t num_elements)
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < num_elements)
+    {
+        output[idx] = start + static_cast<T>(idx) * step;
+    }
+}
+
+// Main function to fill the pre-allocated GPU buffer
+template <typename T>
+cudaError_t tomoArange(T *output, T start, T step, size_t num_elements, cudaStream_t stream)
+{
+    if (num_elements <= 0)
+    {
+        return cudaSuccess;
+    }
+    const int block_size = 256;
+    const int num_blocks = (int)(num_elements + block_size - 1) / block_size;
+    tomoArangeKernel<T><<<num_blocks, block_size, 0, stream>>>(output, start, step, num_elements);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess)
+    {
+        return err;
+    }
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess)
+    {
+        return err;
+    }
+    return cudaSuccess;
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeH(__half_raw *output, __half_raw start, __half_raw step, size_t num_element, cudaStream_t stream)
+{
+    return tomoArange<__half_raw>(output, start, step, num_element, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeB(__nv_bfloat16_raw *output, __nv_bfloat16_raw start, __nv_bfloat16_raw step, size_t num_element, cudaStream_t stream)
+{
+    return tomoArange<__nv_bfloat16_raw>(output, start, step, num_element, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeF(float *output, float start, float step, size_t num_element, cudaStream_t stream)
+{
+    return tomoArange<float>(output, start, step, num_element, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeD(double *output, double start, double step, size_t num_element, cudaStream_t stream)
+{
+    return tomoArange<double>(output, start, step, num_element, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeUZ(size_t *output, size_t start, size_t step, size_t num_element, cudaStream_t stream)
+{
+    return tomoArange<size_t>(output, start, step, num_element, stream);
 }

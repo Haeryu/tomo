@@ -67,15 +67,15 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoBroadcastToB(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape.ptr,
                         new_shape.len,
                         self.base.getStrides().ptr,
                         self.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -127,6 +127,22 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         stream.stream,
                     ));
                 },
+                usize => {
+                    try err.checkCuda(c.tomoBroadcastToUZ(
+                        self.ptr.?,
+                        out.ptr.?,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
+                        new_shape.ptr,
+                        new_shape.len,
+                        self.base.getStrides().ptr,
+                        self.base.getStrides().len,
+                        self.calcLen(),
+                        out.calcLen(),
+                        self.base.getShapeConst().len,
+                        stream.stream,
+                    ));
+                },
                 else => unreachable,
             }
 
@@ -139,6 +155,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             axes: ?[]const isize,
             keepdims: bool,
         ) ![]usize {
+            std.debug.assert(in_shape.len > 0);
             // If `axes` is null, sum over all dimensions [0..in_shape.len).
             if (axes == null) {
                 var all_axes = try allocator.alloc(isize, in_shape.len);
@@ -184,6 +201,11 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                 }
             }
 
+            // std.debug.print("\n{any}\n", .{in_shape});
+            // std.debug.print("{any}\n", .{axes});
+            // std.debug.print("{any}\n", .{out_arrlist.items});
+            // std.debug.print("{any}\n", .{keepdims});
+
             return try out_arrlist.toOwnedSlice();
         }
 
@@ -198,17 +220,18 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             defer allocator.free(new_shape);
 
             // Always create output with keepdims=true shape
+
             var out = try GPUTensor(T).initAsync(new_shape, stream);
             errdefer out.deinitAsync(stream);
-            try out.fill(if (T == Bf16) Bf16.fromF32(0.0) else 0.0, stream);
+            try out.fill(0.0, stream);
 
             switch (T) {
                 Bf16 => {
                     try err.checkCuda(c.tomoSumToB(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape.ptr,
                         new_shape.len,
                         self.base.getStrides().ptr,
@@ -217,7 +240,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -376,8 +399,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoMaxToB(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape.ptr,
                         new_shape.len,
                         self.base.getStrides().ptr,
@@ -386,7 +409,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -574,8 +597,8 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoArgmaxH(
                         @ptrCast(self.ptr.?),
                         @ptrCast(out.ptr.?),
-                        self.base.getShape().ptr,
-                        self.base.getShape().len,
+                        self.base.getShapeConst().ptr,
+                        self.base.getShapeConst().len,
                         new_shape.ptr,
                         new_shape.len,
                         self.base.getStrides().ptr,
@@ -584,7 +607,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                         out.base.getStrides().len,
                         //  self.calcLen(),
                         out.calcLen(),
-                        self.base.getShape().len,
+                        self.base.getShapeConst().len,
                         stream.stream,
                     ));
                 },
@@ -782,7 +805,7 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             var out = try self.sum(allocator, axes, keepdims, stream);
             errdefer out.deinitAsync(stream);
 
-            const scale_factor = 1.0 / @as(T, @floatFromInt(num_elements));
+            const scale_factor: if (T != Bf16) T else f32 = 1.0 / @as(if (T != Bf16) T else f32, @floatFromInt(num_elements));
             try out.scale(scale_factor, stream);
 
             return out;

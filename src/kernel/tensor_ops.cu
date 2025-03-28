@@ -1031,20 +1031,29 @@ __global__ void tomoLinearKernelimpH(
     const __half_raw *__restrict__ B, // (K x N)
     size_t M, size_t K, size_t N,
     const __half_raw *__restrict__ bias, // (optional, M x N)
-    __half_raw *__restrict__ C           // (M x N)
-)
+    __half_raw *__restrict__ C,          // (M x N)
+    size_t batch_size)
 {
     constexpr int BM = TileDims<__half_raw>::BM;
     constexpr int BK = TileDims<__half_raw>::BK;
     constexpr int BN = TileDims<__half_raw>::BN;
 
     // 2D index in the grid
-    const int blockRow = blockIdx.y; // which block in dimension M
-    const int blockCol = blockIdx.x; // which block in dimension N
-
-    // 2D index in the block
+    // Determine batch index from blockIdx.z
+    const int batch_idx = blockIdx.z;
+    const int blockRow = blockIdx.y;
+    const int blockCol = blockIdx.x;
     const int threadRow = threadIdx.y;
     const int threadCol = threadIdx.x;
+
+    // Offset pointers to current batch
+    A += batch_idx * M * K;
+    B += batch_idx * K * N;
+    C += batch_idx * M * N;
+    if (bias != nullptr)
+    {
+        bias += batch_idx * M * N;
+    }
 
     // Global row/column for the block
     const int globalRow = blockRow * BM;
@@ -1256,21 +1265,29 @@ __global__ void tomoLinearKernelimpB(
     const __nv_bfloat16_raw *__restrict__ B, // (K x N)
     size_t M, size_t K, size_t N,
     const __nv_bfloat16_raw *__restrict__ bias, // (optional, M x N)
-    __nv_bfloat16_raw *__restrict__ C           // (M x N)
-)
+    __nv_bfloat16_raw *__restrict__ C,          // (M x N)
+    size_t batch_size)
 {
 
     constexpr int BM = TileDims<__nv_bfloat16_raw>::BM;
     constexpr int BK = TileDims<__nv_bfloat16_raw>::BK;
     constexpr int BN = TileDims<__nv_bfloat16_raw>::BN;
 
-    // 2D block index
+    // Determine batch index from blockIdx.z
+    const int batch_idx = blockIdx.z;
     const int blockRow = blockIdx.y;
     const int blockCol = blockIdx.x;
-
-    // 2D thread index
     const int threadRow = threadIdx.y;
     const int threadCol = threadIdx.x;
+
+    // Offset pointers to current batch
+    A += batch_idx * M * K;
+    B += batch_idx * K * N;
+    C += batch_idx * M * N;
+    if (bias != nullptr)
+    {
+        bias += batch_idx * M * N;
+    }
 
     // Start row/col in global memory
     const int globalRow = blockRow * BM;
@@ -1454,17 +1471,29 @@ __global__ void tomoLinearKernelimpF(
     const float *__restrict__ B,
     size_t M, size_t K, size_t N,
     const float *__restrict__ bias,
-    float *__restrict__ C)
+    float *__restrict__ C,
+    size_t batch_size)
 {
 
     constexpr int BM = TileDims<float>::BM;
     constexpr int BK = TileDims<float>::BK;
     constexpr int BN = TileDims<float>::BN;
 
+    // Determine batch index from blockIdx.z
+    const int batch_idx = blockIdx.z;
     const int blockRow = blockIdx.y;
     const int blockCol = blockIdx.x;
     const int threadRow = threadIdx.y;
     const int threadCol = threadIdx.x;
+
+    // Offset pointers to current batch
+    A += batch_idx * M * K;
+    B += batch_idx * K * N;
+    C += batch_idx * M * N;
+    if (bias != nullptr)
+    {
+        bias += batch_idx * M * N;
+    }
 
     const int globalRow = blockRow * BM;
     const int globalCol = blockCol * BN;
@@ -1612,16 +1641,28 @@ __global__ void tomoLinearKernelimpD(
     const double *__restrict__ B,
     size_t M, size_t K, size_t N,
     const double *__restrict__ bias,
-    double *__restrict__ C)
+    double *__restrict__ C,
+    size_t batch_size)
 {
     constexpr int BM = TileDims<double>::BM;
     constexpr int BK = TileDims<double>::BK;
     constexpr int BN = TileDims<double>::BN;
 
+    // Determine batch index from blockIdx.z
+    const int batch_idx = blockIdx.z;
     const int blockRow = blockIdx.y;
     const int blockCol = blockIdx.x;
     const int threadRow = threadIdx.y;
     const int threadCol = threadIdx.x;
+
+    // Offset pointers to current batch
+    A += batch_idx * M * K;
+    B += batch_idx * K * N;
+    C += batch_idx * M * N;
+    if (bias != nullptr)
+    {
+        bias += batch_idx * M * N;
+    }
 
     const int globalRow = blockRow * BM;
     const int globalCol = blockCol * BN;
@@ -1759,34 +1800,37 @@ __global__ void tomoLinearKernelimpD(
 }
 
 template <typename T>
-cudaError_t tomoLinearImp(T const *A, T const *B, size_t M, size_t K, size_t N, T const *bias, T *C, cudaStream_t stream)
+cudaError_t tomoLinearImp(T const *A, T const *B, size_t M, size_t K, size_t N, T const *bias, T *C, size_t batch_size, cudaStream_t stream)
 {
     constexpr int BM = TileDims<T>::BM;
     // constexpr int BK = TileDims<T>::BK;
     constexpr int BN = TileDims<T>::BN;
 
-    dim3 blockDim(BN / TN, BM / TM); // e.g., (16, 16) with BN=128, BM=128, TN=8, TM=8
-    dim3 gridDim((unsigned int)CEIL_DIV(N, BN), (unsigned int)CEIL_DIV(M, BM));
+    const unsigned int blocksPerRow = (unsigned int)(M + BM - 1) / BM;
+    const unsigned int blocksPerCol =  (unsigned int)(N + BN - 1) / BN;
+
+    dim3 grid(blocksPerCol, blocksPerRow, (unsigned int)batch_size);
+    dim3 block(BN / TN, BM / TM); 
 
     if constexpr (std::is_same_v<T, __half_raw>)
     {
-        tomoLinearKernelimpH<<<gridDim, blockDim, 0, stream>>>(
-            A, B, M, K, N, bias, C);
+        tomoLinearKernelimpH<<<grid, block, 0, stream>>>(
+            A, B, M, K, N, bias, C, batch_size);
     }
     else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
     {
-        tomoLinearKernelimpB<<<gridDim, blockDim, 0, stream>>>(
-            A, B, M, K, N, bias, C);
+        tomoLinearKernelimpB<<<grid, block, 0, stream>>>(
+            A, B, M, K, N, bias, C, batch_size);
     }
     else if constexpr (std::is_same_v<T, float>)
     {
-        tomoLinearKernelimpF<<<gridDim, blockDim, 0, stream>>>(
-            A, B, M, K, N, bias, C);
+        tomoLinearKernelimpF<<<grid, block, 0, stream>>>(
+            A, B, M, K, N, bias, C, batch_size);
     }
     else if constexpr (std::is_same_v<T, double>)
     {
-        tomoLinearKernelimpD<<<gridDim, blockDim, 0, stream>>>(
-            A, B, M, K, N, bias, C);
+        tomoLinearKernelimpD<<<grid, block, 0, stream>>>(
+            A, B, M, K, N, bias, C, batch_size);
     }
 
     return cudaGetLastError();
@@ -2843,7 +2887,6 @@ cudaError_t tomoCol2im(
     return err;
 }
 
-
 //------------------------------------------------------------------------------
 // 1D im2col kernel
 //------------------------------------------------------------------------------
@@ -3054,19 +3097,21 @@ __device__ inline double deviceInfinity<double>(bool negative)
 // Specialize for __half_raw
 // We do a simple conversion from float∞ to half∞.
 template <>
-__device__ inline __half_raw deviceInfinity<__half_raw>(bool negative) {
-    float inf = negative ? -std::numeric_limits<float>::infinity() 
+__device__ inline __half_raw deviceInfinity<__half_raw>(bool negative)
+{
+    float inf = negative ? -std::numeric_limits<float>::infinity()
                          : std::numeric_limits<float>::infinity();
     __half h_inf = __float2half(inf);
-    return *reinterpret_cast<__half_raw*>(&h_inf);
+    return *reinterpret_cast<__half_raw *>(&h_inf);
 }
 
 template <>
-__device__ inline __nv_bfloat16_raw deviceInfinity<__nv_bfloat16_raw>(bool negative) {
+__device__ inline __nv_bfloat16_raw deviceInfinity<__nv_bfloat16_raw>(bool negative)
+{
     float inf = negative ? -std::numeric_limits<float>::infinity()
                          : std::numeric_limits<float>::infinity();
     __nv_bfloat16 b_inf = __float2bfloat16(inf);
-    return *reinterpret_cast<__nv_bfloat16_raw*>(&b_inf);
+    return *reinterpret_cast<__nv_bfloat16_raw *>(&b_inf);
 }
 
 template <typename T>
@@ -3443,7 +3488,8 @@ __global__ void tomoMaxPool2dForwardKernel(
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t total = N * C * outH * outW;
-    if (idx >= total) return;
+    if (idx >= total)
+        return;
 
     size_t ow = idx % outW;
     size_t tmp = idx / outW;
@@ -3465,11 +3511,14 @@ __global__ void tomoMaxPool2dForwardKernel(
     ptrdiff_t valid_end_w = min(in_end_w, static_cast<ptrdiff_t>(W));
 
     T max_val = deviceInfinity<T>(true);
-    for (ptrdiff_t ih = valid_start_h; ih < valid_end_h; ++ih) {
-        for (ptrdiff_t iw = valid_start_w; iw < valid_end_w; ++iw) {
+    for (ptrdiff_t ih = valid_start_h; ih < valid_end_h; ++ih)
+    {
+        for (ptrdiff_t iw = valid_start_w; iw < valid_end_w; ++iw)
+        {
             size_t in_index = (n * C + c) * H * W + ih * W + iw;
             T val = input[in_index];
-            if (val > max_val) max_val = val;
+            if (val > max_val)
+                max_val = val;
         }
     }
     output[idx] = max_val;
@@ -3512,7 +3561,8 @@ __global__ void tomoMaxPool2dBackwardKernel(
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t total = N * C * outH * outW;
-    if (idx >= total) return;
+    if (idx >= total)
+        return;
 
     size_t ow = idx % outW;
     size_t tmp = idx / outW;
@@ -3533,11 +3583,14 @@ __global__ void tomoMaxPool2dBackwardKernel(
 
     T max_val = deviceInfinity<T>(true);
     ptrdiff_t max_h = -1, max_w = -1;
-    for (ptrdiff_t ih = valid_start_h; ih < valid_end_h; ++ih) {
-        for (ptrdiff_t iw = valid_start_w; iw < valid_end_w; ++iw) {
+    for (ptrdiff_t ih = valid_start_h; ih < valid_end_h; ++ih)
+    {
+        for (ptrdiff_t iw = valid_start_w; iw < valid_end_w; ++iw)
+        {
             size_t in_index = (n * C + c) * H * W + ih * W + iw;
             T val = input[in_index];
-            if (val > max_val) {
+            if (val > max_val)
+            {
                 max_val = val;
                 max_h = ih;
                 max_w = iw;
@@ -3545,20 +3598,25 @@ __global__ void tomoMaxPool2dBackwardKernel(
         }
     }
 
-    if (max_h >= 0 && max_w >= 0) {
+    if (max_h >= 0 && max_w >= 0)
+    {
         size_t in_index = (n * C + c) * H * W + max_h * W + max_w;
         T grad_val = gradOut[idx];
         // Atomic add with type handling
-        if constexpr (std::is_same_v<T, __half_raw>) {
-            atomicAdd(reinterpret_cast<__half*>(&gradIn[in_index]), __half(grad_val));
-        } else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>) {
-            atomicAdd(reinterpret_cast<__nv_bfloat16*>(&gradIn[in_index]), __nv_bfloat16(grad_val));
-        } else {
+        if constexpr (std::is_same_v<T, __half_raw>)
+        {
+            atomicAdd(reinterpret_cast<__half *>(&gradIn[in_index]), __half(grad_val));
+        }
+        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        {
+            atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gradIn[in_index]), __nv_bfloat16(grad_val));
+        }
+        else
+        {
             atomicAdd(&gradIn[in_index], grad_val);
         }
     }
 }
-
 
 template <typename T>
 cudaError_t tomoMaxPool2dBackward(
@@ -3773,6 +3831,112 @@ cudaError_t tomoAvgPool2dBackward(
     return cudaGetLastError();
 }
 
+
+template <typename T>
+__global__ void embeddingForwardKernel(
+    const T* weight,          // [num_embeddings, embedding_dim]
+    const size_t* indices,   // [batch_size, sequence_length]
+    T* output,                // [batch_size, sequence_length, embedding_dim]
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length)
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total_elements = batch_size * sequence_length * embedding_dim;
+    if (idx < total_elements) {
+        // Unravel idx to (b, s, d)
+        size_t d = idx % embedding_dim;
+        size_t s = (idx / embedding_dim) % sequence_length;
+        size_t b = idx / (embedding_dim * sequence_length);
+        size_t emb_idx = indices[b * sequence_length + s];
+        if (emb_idx < num_embeddings) {
+            output[idx] = weight[emb_idx * embedding_dim + d];
+        } else {
+            output[idx] = T(0); // Handle out-of-range indices
+        }
+    }
+}
+
+template <typename T>
+__global__ void embeddingBackwardKernel(
+    const T* grad_output,     // [batch_size, sequence_length, embedding_dim]
+    const size_t* indices,   // [batch_size, sequence_length]
+    T* grad_weight,           // [num_embeddings, embedding_dim]
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length)
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total_elements = batch_size * sequence_length * embedding_dim;
+    if (idx < total_elements) {
+        // Unravel idx to (b, s, d)
+        size_t d = idx % embedding_dim;
+        size_t s = (idx / embedding_dim) % sequence_length;
+        size_t b = idx / (embedding_dim * sequence_length);
+        size_t emb_idx = indices[b * sequence_length + s];
+        if (emb_idx < num_embeddings) {
+            if constexpr (std::is_same_v<T, __half_raw>)
+        {
+            atomicAdd(reinterpret_cast<__half *>(&grad_weight[emb_idx * embedding_dim + d]),
+                      static_cast<__half>(grad_output[idx]));
+        }
+        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        {
+            atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&grad_weight[emb_idx * embedding_dim + d]),
+                      static_cast<__nv_bfloat16>(grad_output[idx]));
+        }
+        else
+        {
+            atomicAdd(&grad_weight[emb_idx * embedding_dim + d], grad_output[idx]);
+        }
+        }
+
+        
+    }
+}
+
+template <typename T>
+cudaError_t tomoEmbeddingForward(
+    const T* weight,          // [num_embeddings, embedding_dim]
+    const size_t* indices,   // [batch_size, sequence_length]
+    T* output,                // [batch_size, sequence_length, embedding_dim]
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    const int threads = 256;
+    const size_t total_elements = batch_size * sequence_length * embedding_dim;
+    const int blocks = (int)(total_elements + threads - 1) / threads;
+    embeddingForwardKernel<<<blocks, threads, 0, stream>>>(
+        weight, indices, output, num_embeddings, embedding_dim, batch_size, sequence_length
+    );
+    return cudaGetLastError();
+}
+
+template <typename T>
+cudaError_t tomoEmbeddingBackward(
+    const T* grad_output,     // [batch_size, sequence_length, embedding_dim]
+    const size_t* indices,   // [batch_size, sequence_length]
+    T* grad_weight,           // [num_embeddings, embedding_dim]
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    const int threads = 256;
+    const size_t total_elements = batch_size * sequence_length * embedding_dim;
+    const int blocks = (int)(total_elements + threads - 1) / threads;
+    embeddingBackwardKernel<<<blocks, threads, 0, stream>>>(
+        grad_output, indices, grad_weight, num_embeddings, embedding_dim, batch_size, sequence_length
+    );
+    return cudaGetLastError();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BROADCAST-TO WRAPPERS
 ////////////////////////////////////////////////////////////////////////////////
@@ -3885,6 +4049,32 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBroadcastToD(
     cudaStream_t stream)
 {
     return tomoBroadcastTo<double>(
+        d_in,
+        d_out,
+        in_shape, in_shape_len,
+        out_shape, out_shape_len,
+        in_strides, in_strides_len,
+        in_size,
+        out_size,
+        nd,
+        stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBroadcastToUZ(
+    size_t const *d_in,
+    size_t *d_out,
+    size_t const *in_shape,
+    size_t in_shape_len,
+    size_t const *out_shape,
+    size_t out_shape_len,
+    size_t const *in_strides,
+    size_t in_strides_len,
+    size_t in_size,
+    size_t out_size,
+    size_t nd,
+    cudaStream_t stream)
+{
+    return tomoBroadcastTo<size_t>(
         d_in,
         d_out,
         in_shape, in_shape_len,
@@ -4046,30 +4236,30 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearD(
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpH(
     __half_raw const *A, __half_raw const *B, size_t M, size_t K, size_t N,
-    __half_raw const *bias, __half_raw *C, cudaStream_t stream)
+    __half_raw const *bias, __half_raw *C, size_t batch_size, cudaStream_t stream)
 {
-    return tomoLinearImp<__half_raw>(A, B, M, K, N, bias, C, stream);
+    return tomoLinearImp<__half_raw>(A, B, M, K, N, bias, C, batch_size, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpB(
     __nv_bfloat16_raw const *A, __nv_bfloat16_raw const *B, size_t M, size_t K, size_t N,
-    __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C, cudaStream_t stream)
+    __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C, size_t batch_size, cudaStream_t stream)
 {
-    return tomoLinearImp<__nv_bfloat16_raw>(A, B, M, K, N, bias, C, stream);
+    return tomoLinearImp<__nv_bfloat16_raw>(A, B, M, K, N, bias, C, batch_size, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpF(
     float const *A, float const *B, size_t M, size_t K, size_t N,
-    float const *bias, float *C, cudaStream_t stream)
+    float const *bias, float *C, size_t batch_size, cudaStream_t stream)
 {
-    return tomoLinearImp<float>(A, B, M, K, N, bias, C, stream);
+    return tomoLinearImp<float>(A, B, M, K, N, bias, C, batch_size, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpD(
     double const *A, double const *B, size_t M, size_t K, size_t N,
-    double const *bias, double *C, cudaStream_t stream)
+    double const *bias, double *C, size_t batch_size, cudaStream_t stream)
 {
-    return tomoLinearImp<double>(A, B, M, K, N, bias, C, stream);
+    return tomoLinearImp<double>(A, B, M, K, N, bias, C, batch_size, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeH(__half_raw const *A, size_t M, size_t N, __half_raw *C, cudaStream_t stream)
@@ -5423,4 +5613,127 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardD(
         sH, sW,
         pH, pW,
         stream);
+}
+
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardH(
+    __half_raw* weight,
+    const size_t* indices,
+    __half_raw* output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingForward<__half_raw>(
+        weight, indices, output,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardB(
+    __nv_bfloat16_raw* weight,
+    const size_t* indices,
+    __nv_bfloat16_raw* output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingForward<__nv_bfloat16_raw>(
+        weight, indices, output,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardF(
+    float* weight,
+    const size_t* indices,
+    float* output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingForward<float>(
+        weight, indices, output,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardD(
+    double* weight,
+    const size_t* indices,
+    double* output,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingForward<double>(
+        weight, indices, output,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
+}
+
+// C Wrappers for embedding backward.
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardH(
+    const __half_raw* grad_output,
+    const size_t* indices,
+    __half_raw* grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingBackward<__half_raw>(
+        grad_output, indices, grad_weight,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardB(
+    const __nv_bfloat16_raw* grad_output,
+    const size_t* indices,
+    __nv_bfloat16_raw* grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingBackward<__nv_bfloat16_raw>(
+        grad_output, indices, grad_weight,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardF(
+    const float* grad_output,
+    const size_t* indices,
+    float* grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingBackward<float>(
+        grad_output, indices, grad_weight,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardD(
+    const double* grad_output,
+    const size_t* indices,
+    double* grad_weight,
+    size_t num_embeddings,
+    size_t embedding_dim,
+    size_t batch_size,
+    size_t sequence_length,
+    cudaStream_t stream)
+{
+    return tomoEmbeddingBackward<double>(
+        grad_output, indices, grad_weight,
+        num_embeddings, embedding_dim, batch_size, sequence_length, stream);
 }

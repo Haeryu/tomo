@@ -439,12 +439,12 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn scale(
             self: *Self,
-            factor: T,
+            factor: if (T != Bf16) T else f32,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 Bf16 => {
-                    try err.checkCuda(c.tomoScaleB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(factor), stream.stream));
+                    try err.checkCuda(c.tomoScaleB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(Bf16.fromF32(factor)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoScaleH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(factor), stream.stream));
@@ -570,12 +570,12 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn shift(
             self: *Self,
-            offset: T,
+            offset: if (T != Bf16) T else f32,
             stream: *const Stream,
         ) !void {
             switch (T) {
                 Bf16 => {
-                    try err.checkCuda(c.tomoShiftB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(offset), stream.stream));
+                    try err.checkCuda(c.tomoShiftB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(Bf16.fromF32(offset)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoShiftH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(offset), stream.stream));
@@ -657,6 +657,9 @@ pub fn TensorOpMap(comptime T: type) type {
                 f64 => {
                     try err.checkCuda(c.tomoGtD(self.ptr.?, self.calcLen(), num, stream.stream));
                 },
+                usize => {
+                    try err.checkCuda(c.tomoGtUZ(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
                 else => unreachable,
             }
         }
@@ -674,6 +677,9 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 f64 => {
                     try err.checkCuda(c.tomoGtEqD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                usize => {
+                    try err.checkCuda(c.tomoGtEqUZ(self.ptr.?, self.calcLen(), num, stream.stream));
                 },
                 else => unreachable,
             }
@@ -693,6 +699,9 @@ pub fn TensorOpMap(comptime T: type) type {
                 f64 => {
                     try err.checkCuda(c.tomoLtD(self.ptr.?, self.calcLen(), num, stream.stream));
                 },
+                usize => {
+                    try err.checkCuda(c.tomoLtUZ(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
                 else => unreachable,
             }
         }
@@ -711,6 +720,9 @@ pub fn TensorOpMap(comptime T: type) type {
                 f64 => {
                     try err.checkCuda(c.tomoLtEqD(self.ptr.?, self.calcLen(), num, stream.stream));
                 },
+                usize => {
+                    try err.checkCuda(c.tomoLtEqUZ(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
                 else => unreachable,
             }
         }
@@ -728,6 +740,110 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 f64 => {
                     try err.checkCuda(c.tomoEqD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                usize => {
+                    try err.checkCuda(c.tomoEqUZ(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn neq(self: *Self, num: T, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoNeqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoNeqH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoNeqF(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoNeqD(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                usize => {
+                    try err.checkCuda(c.tomoNeqUZ(self.ptr.?, self.calcLen(), num, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn maskedFill(self: *Self, mask: *const Self, num: T, stream: *const Stream) !void {
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoMaskedFillB(@ptrCast(self.ptr.?), @ptrCast(mask.ptr), @bitCast(num), self.calcLen(), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoMaskedFillH(@ptrCast(self.ptr.?), @ptrCast(mask.ptr), @bitCast(num), self.calcLen(), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoMaskedFillF(self.ptr.?, mask.ptr, num, self.calcLen(), stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoMaskedFillD(self.ptr.?, mask.ptr, num, self.calcLen(), stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn tril(self: *Self, fill: T, stream: *const Stream) !void {
+            const rows = self.base.getRow();
+            const cols = self.base.getCol();
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoTrilB(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoTrilH(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoTrilF(self.ptr.?, rows, cols, fill, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoTrilD(self.ptr.?, rows, cols, fill, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn triu(self: *Self, fill: T, stream: *const Stream) !void {
+            const rows = self.base.getRow();
+            const cols = self.base.getCol();
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoTriuB(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoTriuH(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoTriuF(self.ptr.?, rows, cols, fill, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoTriuD(self.ptr.?, rows, cols, fill, stream.stream));
+                },
+                else => unreachable,
+            }
+        }
+
+        pub fn arange(self: *Self, start: T, step: T, stream: *const Stream) !void {
+            const len = self.calcLen();
+            switch (T) {
+                Bf16 => {
+                    try err.checkCuda(c.tomoArangeB(@ptrCast(self.ptr.?), start, step, len, stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoArangeD(@ptrCast(self.ptr.?), start, step, len, stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoArangeF(self.ptr.?, start, step, len, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoArangeD(self.ptr.?, start, step, len, stream.stream));
+                },
+                usize => {
+                    try err.checkCuda(c.tomoArangeUZ(self.ptr.?, start, step, len, stream.stream));
                 },
                 else => unreachable,
             }

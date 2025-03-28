@@ -6,8 +6,6 @@
 
 #include "tomo_dll.h"
 
-
-
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSinH(__half_raw *a, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSinB(__nv_bfloat16_raw *a, size_t len, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSinF(float *a, size_t len, cudaStream_t stream);
@@ -173,23 +171,118 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtH(__half_raw *a, size_t len, __half
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtF(float *a, size_t len, float num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtD(double *a, size_t len, double num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtUZ(size_t *a, size_t len, size_t num, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqF(float *a, size_t len, float num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqD(double *a, size_t len, double num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtF(float *a, size_t len, float num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtD(double *a, size_t len, double num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtUZ(size_t *a, size_t len, size_t num, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqF(float *a, size_t len, float num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqD(double *a, size_t len, double num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream);
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqF(float *a, size_t len, float num, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqD(double *a, size_t len, double num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqF(float *a, size_t len, float num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqD(double *a, size_t len, double num, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqUZ(size_t *a, size_t len, size_t num, cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillH(
+    __half_raw *data,
+    __half_raw const *mask,
+    __half_raw fillValue,
+    size_t len,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillB(
+    __nv_bfloat16_raw *data,
+    __nv_bfloat16_raw const *mask,
+    __nv_bfloat16_raw fillValue,
+    size_t len,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillF(
+    float *data,
+    float const *mask,
+    float fillValue,
+    size_t len,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaskedFillD(
+    double *data,
+    double const *mask,
+    double fillValue,
+    size_t len,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilH(
+    __half_raw *data,
+    size_t rows,
+    size_t cols,
+    __half_raw fillValue,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuH(
+    __half_raw *data,
+    size_t rows,
+    size_t cols,
+    __half_raw fillValue,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilB(
+    __nv_bfloat16_raw *data,
+    size_t rows,
+    size_t cols,
+    __nv_bfloat16_raw fillValue,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuB(
+    __nv_bfloat16_raw *data,
+    size_t rows,
+    size_t cols,
+    __nv_bfloat16_raw fillValue,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilF(
+    float *data,
+    size_t rows,
+    size_t cols,
+    float fillValue,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuF(
+    float *data,
+    size_t rows,
+    size_t cols,
+    float fillValue,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTrilD(
+    double *data,
+    size_t rows,
+    size_t cols,
+    double fillValue,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTriuD(
+    double *data,
+    size_t rows,
+    size_t cols,
+    double fillValue,
+    cudaStream_t stream);
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeH(__half_raw *output, __half_raw start, __half_raw step, size_t num_element, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeB(__nv_bfloat16_raw *output, __nv_bfloat16_raw start, __nv_bfloat16_raw step, size_t num_element, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeF(float *output, float start, float step, size_t num_element, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeD(double *output, double start, double step, size_t num_element, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeUZ(size_t *output, size_t start, size_t step, size_t num_element, cudaStream_t stream);

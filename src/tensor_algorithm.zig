@@ -10,10 +10,10 @@ pub fn TensorAlgorithm(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
 
-        pub fn fill(self: *Self, val: T, stream: *const Stream) !void {
+        pub fn fill(self: *Self, val: if (T != BF16) T else f32, stream: *const Stream) !void {
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoFillB(@ptrCast(self.ptr), self.calcLen(), val.val, stream.stream));
+                    try err.checkCuda(c.tomoFillB(@ptrCast(self.ptr), self.calcLen(), @bitCast(BF16.fromF32(val)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoFillH(@ptrCast(self.ptr), self.calcLen(), @bitCast(val), stream.stream));

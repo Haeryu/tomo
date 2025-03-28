@@ -59,7 +59,7 @@ pub fn TensorFillRandom(comptime T: type) type {
         ) !void {
             try cuda_context.setCurandStream(stream);
             try self.fillUniform(cuda_context, stream);
-            const range = max - min;
+            const range = if (T != BF16) max - min else BF16.sub(max, min);
             const offset = min;
             try self.scaleShift(range, offset, stream);
         }
@@ -78,7 +78,7 @@ pub fn TensorFillRandom(comptime T: type) type {
                     var f32_buf: GPUTensor(f32) = try .initAsync(self.base.getShapeConst(), stream);
                     defer f32_buf.deinitAsync(stream);
 
-                    try f32_buf.fillNormalDistribution(mean, stddev, cuda_context, stream);
+                    try f32_buf.fillNormalDistribution(mean.toF32(), stddev.toF32(), cuda_context, stream);
 
                     var bf16_buf = try f32_buf.cast(BF16, stream);
                     defer bf16_buf.deinitAsync(stream);
@@ -112,8 +112,8 @@ pub fn TensorFillRandom(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             const fan_in, const fan_out = self.base.computeFanInOut();
-            const limit = @sqrt(6.0 / @as(T, @floatFromInt(fan_in + fan_out)));
-            try self.fillUniformRange(-limit, limit, cuda_context, stream);
+            const limit = if (T != BF16) @sqrt(6.0 / @as(T, @floatFromInt(fan_in + fan_out))) else BF16.div(BF16.fromF32(6.0), BF16.fromF32(@floatFromInt(fan_in + fan_out)));
+            try self.fillUniformRange(if (T != BF16) -limit else limit.neg(), limit, cuda_context, stream);
         }
 
         pub fn fillHeNormal(
@@ -122,8 +122,8 @@ pub fn TensorFillRandom(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             const fan_in, _ = self.base.computeFanInOut();
-            const stddev = @sqrt(2.0 / @as(T, @floatFromInt(fan_in)));
-            try self.fillNormalDistribution(0.0, stddev, cuda_context, stream);
+            const stddev = if (T != BF16) @sqrt(2.0 / @as(T, @floatFromInt(fan_in))) else BF16.div(BF16.fromF32(2.0), BF16.fromF32(@floatFromInt(fan_in)));
+            try self.fillNormalDistribution(if (T != BF16) 0.0 else BF16.fromF32(0.0), stddev, cuda_context, stream);
         }
 
         pub fn fillHeUniform(
@@ -132,8 +132,8 @@ pub fn TensorFillRandom(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             const fan_in, _ = self.base.computeFanInOut();
-            const limit = @sqrt(6.0 / @as(T, @floatFromInt(fan_in)));
-            try self.fillUniformRange(-limit, limit, cuda_context, stream);
+            const limit = if (T != BF16) @sqrt(6.0 / @as(T, @floatFromInt(fan_in))) else BF16.div(BF16.fromF32(6.0), BF16.fromF32(@floatFromInt(fan_in)));
+            try self.fillUniformRange(if (T != BF16) -limit else limit.neg(), limit, cuda_context, stream);
         }
     };
 }

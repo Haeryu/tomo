@@ -60,6 +60,58 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemD(
     size_t nd, size_t out_size,
     cudaStream_t stream);
 
+    // Half
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSetItemH(
+    __half_raw const *src,
+    __half_raw *dest,
+    size_t const *src_shape, size_t src_shape_len,
+    size_t const *dest_shape, size_t dest_shape_len,
+    size_t const *src_strides, size_t src_strides_len,
+    size_t const *dest_strides, size_t dest_strides_len,
+    size_t const *starts, size_t starts_len,
+    size_t const *steps, size_t steps_len,
+    size_t nd, size_t src_size,
+    cudaStream_t stream);
+
+// Bfloat16
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSetItemB(
+    __nv_bfloat16_raw const *src,
+    __nv_bfloat16_raw *dest,
+    size_t const *src_shape, size_t src_shape_len,
+    size_t const *dest_shape, size_t dest_shape_len,
+    size_t const *src_strides, size_t src_strides_len,
+    size_t const *dest_strides, size_t dest_strides_len,
+    size_t const *starts, size_t starts_len,
+    size_t const *steps, size_t steps_len,
+    size_t nd, size_t src_size,
+    cudaStream_t stream);
+
+// Float
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSetItemF(
+    float const *src,
+    float *dest,
+    size_t const *src_shape, size_t src_shape_len,
+    size_t const *dest_shape, size_t dest_shape_len,
+    size_t const *src_strides, size_t src_strides_len,
+    size_t const *dest_strides, size_t dest_strides_len,
+    size_t const *starts, size_t starts_len,
+    size_t const *steps, size_t steps_len,
+    size_t nd, size_t src_size,
+    cudaStream_t stream);
+
+// Double
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSetItemD(
+    double const *src,
+    double *dest,
+    size_t const *src_shape, size_t src_shape_len,
+    size_t const *dest_shape, size_t dest_shape_len,
+    size_t const *src_strides, size_t src_strides_len,
+    size_t const *dest_strides, size_t dest_strides_len,
+    size_t const *starts, size_t starts_len,
+    size_t const *steps, size_t steps_len,
+    size_t nd, size_t src_size,
+    cudaStream_t stream);
+
 // ----- GetItemGrad Wrappers -----
 // Half
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemGradH(
