@@ -130,13 +130,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDivideD(double *a, double const *b, s
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualH(__half_raw *a, __half_raw const *b, size_t len, cudaStream_t stream)
 {
     return tomoElemwise(a, b, len, [] __device__(__half_raw a, __half_raw b) -> __half_raw
-                        { return (__half_raw) !!(a == b); }, stream);
+                        { return (__half_raw) (__half)!!(a == b); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, cudaStream_t stream)
 {
     return tomoElemwise(a, b, len, [] __device__(__nv_bfloat16_raw a, __nv_bfloat16_raw b) -> __nv_bfloat16_raw
-                        { return (__nv_bfloat16_raw) !!(a == b); }, stream);
+                        { return (__nv_bfloat16_raw) (__nv_bfloat16_raw)!!(a == b); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualF(float *a, float const *b, size_t len, cudaStream_t stream)
@@ -160,13 +160,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualUz(size_t *a, size_t const *b, s
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualApproxH(__half_raw *a, __half_raw const *b, size_t len, __half_raw eps, cudaStream_t stream)
 {
     return tomoElemwise(a, b, len, [=] __device__(__half_raw a, __half_raw b) -> __half_raw
-                        { return (__half_raw) !!((a - b) < eps); }, stream);
+                        { return (__half_raw) (__half)!!((a - b) < eps); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualApproxB(__nv_bfloat16_raw *a, __nv_bfloat16_raw const *b, size_t len, __nv_bfloat16_raw eps, cudaStream_t stream)
 {
     return tomoElemwise(a, b, len, [=] __device__(__nv_bfloat16_raw a, __nv_bfloat16_raw b) -> __nv_bfloat16_raw
-                        { return (__nv_bfloat16_raw) !!((a - b) < eps); }, stream);
+                        { return (__nv_bfloat16_raw)(__nv_bfloat16_raw) !!((a - b) < eps); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqualApproxF(float *a, float const *b, size_t len, float eps, cudaStream_t stream)

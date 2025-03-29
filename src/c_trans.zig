@@ -11258,6 +11258,10 @@ pub extern fn tomoArangeB(output: [*c]__nv_bfloat16_raw, start: __nv_bfloat16_ra
 pub extern fn tomoArangeF(output: [*c]f32, start: f32, step: f32, num_element: usize, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoArangeD(output: [*c]f64, start: f64, step: f64, num_element: usize, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoArangeUZ(output: [*c]usize, start: usize, step: usize, num_element: usize, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFillNormalH(a: [*c]__half_raw, len: usize, mean: f32, stddev: f32, seed: c_ulonglong, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFillNormalB(a: [*c]__nv_bfloat16_raw, len: usize, mean: f32, stddev: f32, seed: c_ulonglong, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFillUniformH(a: [*c]__half_raw, len: usize, seed: c_ulonglong, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFillUniformB(a: [*c]__nv_bfloat16_raw, len: usize, seed: c_ulonglong, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceH(a: [*c]const __half_raw, len: usize, host_out: [*c]__half_raw, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceB(a: [*c]const __nv_bfloat16_raw, len: usize, host_out: [*c]__nv_bfloat16_raw, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceF(a: [*c]const f32, len: usize, host_out: [*c]f32, stream: cudaStream_t) cudaError_t;

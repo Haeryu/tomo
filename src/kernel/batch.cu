@@ -86,12 +86,12 @@ __global__ void tomoGetItemGradKernel(
     // gx[in_idx] = gx[in_idx] + gy[out_idx];
     if constexpr (std::is_same_v<T, __half_raw>)
     {
-        atomicAdd(reinterpret_cast<__half*>(&gx[in_idx]),  static_cast<__half>(gy[out_idx]));
+        atomicAdd(reinterpret_cast<__half *>(&gx[in_idx]), static_cast<__half>(gy[out_idx]));
     }
     else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
     {
 
-        atomicAdd(reinterpret_cast<__nv_bfloat16*>(&gx[in_idx]),  static_cast<__nv_bfloat16>(gy[out_idx]));
+        atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gx[in_idx]), static_cast<__nv_bfloat16>(gy[out_idx]));
     }
     else
     {
@@ -209,27 +209,31 @@ __global__ void tomoSetItemKernel(
 {
     // Get the global thread index
     size_t src_idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
-    if (src_idx >= src_size) {
+    if (src_idx >= src_size)
+    {
         return;
     }
 
     // Unravel src_idx into source coordinates
     size_t src_coords[32]; // Assuming max_rank is 32
     size_t tmp = src_idx;
-    for (ptrdiff_t d = (ptrdiff_t)nd - 1; d >= 0; --d) {
+    for (ptrdiff_t d = (ptrdiff_t)nd - 1; d >= 0; --d)
+    {
         src_coords[d] = tmp % src_shape[d];
         tmp /= src_shape[d];
     }
 
     // Compute corresponding destination coordinates using starts and steps
     size_t dest_coords[32];
-    for (size_t d = 0; d < nd; ++d) {
+    for (size_t d = 0; d < nd; ++d)
+    {
         dest_coords[d] = starts[d] + src_coords[d] * steps[d];
     }
 
     // Compute destination index using strides
     size_t dest_idx = 0;
-    for (size_t d = 0; d < nd; ++d) {
+    for (size_t d = 0; d < nd; ++d)
+    {
         dest_idx += dest_coords[d] * dest_strides[d];
     }
 
@@ -255,31 +259,43 @@ cudaError_t tomoSetItem(
 
     // Allocate device memory
     err = cudaMallocAsync(&d_src_shape, nd * sizeof(size_t), stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMallocAsync(&d_dest_shape, nd * sizeof(size_t), stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMallocAsync(&d_src_strides, nd * sizeof(size_t), stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMallocAsync(&d_dest_strides, nd * sizeof(size_t), stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMallocAsync(&d_starts, nd * sizeof(size_t), stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMallocAsync(&d_steps, nd * sizeof(size_t), stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
 
     // Copy data to device
     err = cudaMemcpyAsync(d_src_shape, src_shape, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMemcpyAsync(d_dest_shape, dest_shape, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMemcpyAsync(d_src_strides, src_strides, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMemcpyAsync(d_dest_strides, dest_strides, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMemcpyAsync(d_starts, starts, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
     err = cudaMemcpyAsync(d_steps, steps, nd * sizeof(size_t), cudaMemcpyHostToDevice, stream);
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
 
     // Launch the kernel
     int const threads = 256;
@@ -289,7 +305,8 @@ cudaError_t tomoSetItem(
 
     // Check for kernel launch errors
     err = cudaGetLastError();
-    if (err != cudaSuccess) return err;
+    if (err != cudaSuccess)
+        return err;
 
     // Free device memory
     cudaFreeAsync(d_src_shape, stream);
@@ -461,8 +478,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemH(
     size_t nd, size_t out_size,
     cudaStream_t stream)
 {
-    return tomoGetItem<__half_raw>(
-        x, y,
+    return tomoGetItem<__half>(
+        (__half const *)x, (__half *)y,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -486,8 +503,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemB(
     size_t nd, size_t out_size,
     cudaStream_t stream)
 {
-    return tomoGetItem<__nv_bfloat16_raw>(
-        x, y,
+    return tomoGetItem<__nv_bfloat16>(
+        (__nv_bfloat16*)x, (__nv_bfloat16*)y,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -561,8 +578,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSetItemH(
     size_t nd, size_t src_size,
     cudaStream_t stream)
 {
-    return tomoSetItem<__half_raw>(
-        src, dest,
+    return tomoSetItem<__half>(
+        (__half*)src, (__half*)dest,
         src_shape, src_shape_len,
         dest_shape, dest_shape_len,
         src_strides, src_strides_len,
@@ -586,8 +603,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSetItemB(
     size_t nd, size_t src_size,
     cudaStream_t stream)
 {
-    return tomoSetItem<__nv_bfloat16_raw>(
-        src, dest,
+    return tomoSetItem<__nv_bfloat16>(
+        (__nv_bfloat16*)src,(__nv_bfloat16*) dest,
         src_shape, src_shape_len,
         dest_shape, dest_shape_len,
         src_strides, src_strides_len,
@@ -648,7 +665,6 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSetItemD(
         stream);
 }
 
-
 // ----- GetItemGrad Wrappers -----
 // Half
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemGradH(
@@ -663,8 +679,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemGradH(
     size_t nd, size_t out_size,
     cudaStream_t stream)
 {
-    return tomoGetItemGrad<__half_raw>(
-        gy, gx,
+    return tomoGetItemGrad<__half>(
+        (__half*)gy,  (__half*)gx,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -688,8 +704,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGetItemGradB(
     size_t nd, size_t out_size,
     cudaStream_t stream)
 {
-    return tomoGetItemGrad<__nv_bfloat16_raw>(
-        gy, gx,
+    return tomoGetItemGrad<__nv_bfloat16>(
+        (__nv_bfloat16*)gy, (__nv_bfloat16*) gx,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -758,7 +774,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotH(
     size_t num_classes,
     cudaStream_t stream)
 {
-    return tomoOneHot<__half_raw>(indices, one_hot, batch_size, num_classes, stream);
+    return tomoOneHot<__half>(indices, (__half*)one_hot, batch_size, num_classes, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotB(
@@ -768,7 +784,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotB(
     size_t num_classes,
     cudaStream_t stream)
 {
-    return tomoOneHot<__nv_bfloat16_raw>(indices, one_hot, batch_size, num_classes, stream);
+    return tomoOneHot<__nv_bfloat16>(indices, (__nv_bfloat16*)one_hot, batch_size, num_classes, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoOneHotF(

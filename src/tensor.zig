@@ -337,7 +337,7 @@ pub fn GPUTensor(comptime T: type) type {
             const base = Base.init(shape);
             var ptr: ?[*]T = null;
             try err.checkCuda(c.cudaMallocAsync(@ptrCast(&ptr), base.countElem() * @sizeOf(T), stream.stream));
-            //      count += 1;
+            // count += 1;
             return .{
                 .ptr = ptr,
                 .base = base,
@@ -353,7 +353,7 @@ pub fn GPUTensor(comptime T: type) type {
 
         pub fn deinitAsync(self: *Self, stream: *const Stream) void {
             if (self.ptr) |ptr| {
-                //         count -= 1;
+                // count -= 1;
                 _ = c.cudaFreeAsync(@ptrCast(ptr), stream.stream);
                 self.ptr = null;
             }

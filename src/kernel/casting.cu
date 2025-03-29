@@ -19,6 +19,7 @@ cudaError_t tomoCast(From const *a,
                      cudaStream_t stream,
                      To *out)
 {
+
     if (len == 0)
     {
         return cudaErrorInvalidValue;
@@ -27,14 +28,7 @@ cudaError_t tomoCast(From const *a,
     try
     {
         thrust::transform(thrust::cuda::par_nosync.on(stream), a, a + len, out, [] __device__(From const &in)
-                          {
-            if constexpr (std::is_same_v<std::remove_cvref_t<From>, __half_raw>) {
-                return static_cast<To>(static_cast<__half>(in));
-            } else if constexpr (std::is_same_v<std::remove_cvref_t<From>, __nv_bfloat16_raw>) {
-                return static_cast<To>(static_cast<__nv_bfloat16>(in));
-            } else {
-                return static_cast<To>(in);
-           } });
+                          { return static_cast<To>(in); });
     }
     catch (const thrust::system_error &e)
     {
@@ -57,37 +51,37 @@ cudaError_t tomoCast(From const *a,
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHtoB(__half_raw *a, size_t len, cudaStream_t stream, __nv_bfloat16_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(reinterpret_cast<__half const *>(a), len, stream, reinterpret_cast<__nv_bfloat16 *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHtoF(__half_raw *a, size_t len, cudaStream_t stream, float *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(reinterpret_cast<__half const *>(a), len, stream, out);
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHtoD(__half_raw *a, size_t len, cudaStream_t stream, double *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(reinterpret_cast<__half const *>(a), len, stream, out);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBtoH(__nv_bfloat16_raw *a, size_t len, cudaStream_t stream, __half_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(reinterpret_cast<__nv_bfloat16 const *>(a), len, stream, reinterpret_cast<__half  *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBtoF(__nv_bfloat16_raw *a, size_t len, cudaStream_t stream, float *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(reinterpret_cast<__nv_bfloat16 const *>(a), len, stream, out);
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBtoD(__nv_bfloat16_raw *a, size_t len, cudaStream_t stream, double *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(reinterpret_cast<__nv_bfloat16 const *>(a), len, stream, out);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFtoH(float *a, size_t len, cudaStream_t stream, __half_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(a, len, stream, reinterpret_cast<__half  *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFtoB(float *a, size_t len, cudaStream_t stream, __nv_bfloat16_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(a, len, stream, reinterpret_cast<__nv_bfloat16 *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFtoD(float *a, size_t len, cudaStream_t stream, double *out)
 {
@@ -96,11 +90,11 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFtoD(float *a, size_t len, cudaStream
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoH(double *a, size_t len, cudaStream_t stream, __half_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(a, len, stream, reinterpret_cast<__half  *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoB(double *a, size_t len, cudaStream_t stream, __nv_bfloat16_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(a, len, stream,  reinterpret_cast<__nv_bfloat16 *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoF(double *a, size_t len, cudaStream_t stream, float *out)
 {
@@ -109,11 +103,11 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoDtoF(double *a, size_t len, cudaStrea
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoH(size_t *a, size_t len, cudaStream_t stream, __half_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(a, len, stream, reinterpret_cast<__half  *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoB(size_t *a, size_t len, cudaStream_t stream, __nv_bfloat16_raw *out)
 {
-    return tomoCast(a, len, stream, out);
+    return tomoCast(a, len, stream,  reinterpret_cast<__nv_bfloat16 *>(out));
 }
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoUztoF(size_t *a, size_t len, cudaStream_t stream, float *out)
 {

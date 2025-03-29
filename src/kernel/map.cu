@@ -57,7 +57,7 @@ cudaError_t tomoElemwiseMap(auto *a,
 __device__ auto tomoRelu(auto &val)
 {
     using T = std::remove_cvref_t<decltype(val)>;
-    return max(static_cast<T>(0), val);
+    return max(static_cast<T>(0.0), val);
 }
 
 __device__ auto tomoLeakyRelu(auto &val)
@@ -69,7 +69,7 @@ __device__ auto tomoLeakyRelu(auto &val)
 __device__ auto tomoInv(auto &val)
 {
     using T = std::remove_cvref_t<decltype(val)>;
-    return static_cast<T>(1) / val;
+    return static_cast<T>(1.0) / val;
 }
 
 // __global__ void tomoBinary(auto *a, auto const *b, size_t len, auto fn_binary)
@@ -217,7 +217,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoInvH(__half_raw *a, size_t len, cudaS
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoInvB(__nv_bfloat16_raw *a, size_t len, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [] __device__(__nv_bfloat16_raw const &x)
-                           { return tomoInv(x); }, stream);
+                           { return (__nv_bfloat16_raw)((__nv_bfloat16)1.0 / (__nv_bfloat16)x); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoInvF(float *a, size_t len, cudaStream_t stream)
@@ -240,7 +240,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoInvD(double *a, size_t len, cudaStrea
 __device__ auto deviceElu(auto x, auto alpha)
 {
     using T = std::remove_cvref_t<decltype(x)>;
-    return (x > static_cast<T>(0)) ? x : alpha * (exp(x) - static_cast<T>(1));
+    return (x > static_cast<T>(0.0)) ? x : alpha * (exp(x) - static_cast<T>(1.0));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEluH(__half_raw *a, size_t len, __half_raw alpha, cudaStream_t stream)
@@ -276,7 +276,7 @@ __device__ auto deviceSelu(auto x, auto alpha, auto lambda)
 {
     // x>0 ? lambda*x : lambda * alpha*(exp(x)-1)
     using T = std::remove_cvref_t<decltype(x)>;
-    return x > static_cast<T>(0) ? lambda * x : lambda * (alpha * (exp(x) - static_cast<T>(1)));
+    return x > static_cast<T>(0.0) ? lambda * x : lambda * (alpha * (exp(x) - static_cast<T>(1.0)));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSeluH(__half_raw *a, size_t len, __half_raw alpha, __half_raw lambda, cudaStream_t stream)
@@ -312,7 +312,7 @@ __device__ auto deviceSoftplus(auto x)
     // log(1 + exp(x))
     // For numerical stability, consider clamp x or use log1p(exp(x)) if available
     using T = std::remove_cvref_t<decltype(x)>;
-    return log(static_cast<T>(1) + exp(x));
+    return log(static_cast<T>(1.0) + exp(x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftplusH(__half_raw *a, size_t len, cudaStream_t stream)
@@ -346,7 +346,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftplusD(double *a, size_t len, cuda
 __device__ auto deviceSigmoid(auto x)
 {
     using T = std::remove_cvref_t<decltype(x)>;
-    return static_cast<T>(1) / (static_cast<T>(1) + exp(-x));
+    return static_cast<T>(1.0) / (static_cast<T>(1.0) + exp(-x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSigmoidH(__half_raw *a, size_t len, cudaStream_t stream)
@@ -409,7 +409,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTanhD(double *a, size_t len, cudaStre
 __device__ auto deviceSwish(auto x)
 {
     using T = std::remove_cvref_t<decltype(x)>;
-    return x / (static_cast<T>(1) + exp(-x));
+    return x / (static_cast<T>(1.0) + exp(-x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSwishH(__half_raw *a, size_t len, cudaStream_t stream)
@@ -450,7 +450,7 @@ __device__ auto deviceGelu(auto x)
     auto const k2 = static_cast<T>(0.044715);
 
     auto t = k1 * (x + k2 * x * x * x);
-    return k0 * x * (static_cast<T>(1) + tanh(t));
+    return k0 * x * (static_cast<T>(1.0) + tanh(t));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGeluH(__half_raw *a, size_t len, cudaStream_t stream)
@@ -486,8 +486,8 @@ __device__ auto deviceHardSigmoid(auto x)
 {
     using T = std::remove_cvref_t<decltype(x)>;
     auto r = static_cast<T>(0.2) * x + static_cast<T>(0.5);
-    r = (r < static_cast<T>(0)) ? static_cast<T>(0) : r;
-    r = (r > static_cast<T>(1)) ? static_cast<T>(1) : r;
+    r = (r < static_cast<T>(0.0)) ? static_cast<T>(0.0) : r;
+    r = (r > static_cast<T>(1.0)) ? static_cast<T>(1.0) : r;
     return r;
 }
 
@@ -524,11 +524,11 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHardSigmoidD(double *a, size_t len, c
 __device__ auto deviceHardSwish(auto x)
 {
     using T = std::remove_cvref_t<decltype(x)>;
-    auto z = x + static_cast<T>(3);
+    auto z = x + static_cast<T>(3.0);
     // clamp z to [0,6]
-    z = (z < static_cast<T>(0)) ? static_cast<T>(0) : z;
-    z = (z > static_cast<T>(6)) ? static_cast<T>(6) : z;
-    return x * z / static_cast<T>(6);
+    z = (z < static_cast<T>(0.0)) ? static_cast<T>(0.0) : z;
+    z = (z > static_cast<T>(6.0)) ? static_cast<T>(6.0) : z;
+    return x * z / static_cast<T>(6.0);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHardSwishH(__half_raw *a, size_t len, cudaStream_t stream)
@@ -563,7 +563,7 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHardSwishD(double *a, size_t len, cud
 __device__ auto deviceSoftsign(auto x)
 {
     using T = std::remove_cvref_t<decltype(x)>;
-    return x / (static_cast<T>(1) + abs(x));
+    return x / (static_cast<T>(1.0) + abs(x));
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSoftsignH(__half_raw *a, size_t len, cudaStream_t stream)
@@ -937,13 +937,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoScaleShiftD(double *a, size_t len, do
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
-                           { return (__half_raw) !!(x > num); }, stream);
+                           { return (__half_raw) (__half)!!(x > num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__nv_bfloat16_raw const &x)
-                           { return (__nv_bfloat16_raw) !!(x > num); }, stream);
+                           { return (__nv_bfloat16_raw)  (__nv_bfloat16)!!(x > num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtF(float *a, size_t len, float num, cudaStream_t stream)
@@ -967,13 +967,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtUZ(size_t *a, size_t len, size_t nu
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
-                           { return (__half_raw) !!(x >= num); }, stream);
+                           { return (__half_raw) (__half)!!(x >= num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__nv_bfloat16_raw const &x)
-                           { return (__nv_bfloat16_raw) !!(x >= num); }, stream);
+                           { return (__nv_bfloat16_raw)  (__nv_bfloat16)!!(x >= num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqF(float *a, size_t len, float num, cudaStream_t stream)
@@ -997,13 +997,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoGtEqUZ(size_t *a, size_t len, size_t 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
-                           { return (__half_raw) !!(x < num); }, stream);
+                           { return (__half_raw) (__half)!!(x < num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__nv_bfloat16_raw const &x)
-                           { return (__nv_bfloat16_raw) !!(x < num); }, stream);
+                           { return (__nv_bfloat16_raw)  (__nv_bfloat16)!!(x < num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtF(float *a, size_t len, float num, cudaStream_t stream)
@@ -1027,13 +1027,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtUZ(size_t *a, size_t len, size_t nu
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
-                           { return (__half_raw) !!(x <= num); }, stream);
+                           { return (__half_raw) (__half)!!(x <= num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__nv_bfloat16_raw const &x)
-                           { return (__nv_bfloat16_raw) !!(x <= num); }, stream);
+                           { return (__nv_bfloat16_raw)  (__nv_bfloat16)!!(x <= num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqF(float *a, size_t len, float num, cudaStream_t stream)
@@ -1057,13 +1057,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLtEqUZ(size_t *a, size_t len, size_t 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
-                           { return (__half_raw) !!(x == num); }, stream);
+                           { return (__half_raw) (__half)!!(x == num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__nv_bfloat16_raw const &x)
-                           { return (__nv_bfloat16_raw) !!(x == num); }, stream);
+                           { return (__nv_bfloat16_raw)  (__nv_bfloat16)!!(x == num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqF(float *a, size_t len, float num, cudaStream_t stream)
@@ -1087,13 +1087,13 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEqUZ(size_t *a, size_t len, size_t nu
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqH(__half_raw *a, size_t len, __half_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__half_raw const &x)
-                           { return (__half_raw) !!(x != num); }, stream);
+                           { return (__half_raw) (__half)!!(x != num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw num, cudaStream_t stream)
 {
     return tomoElemwiseMap(a, len, [=] __device__(__nv_bfloat16_raw const &x)
-                           { return (__nv_bfloat16_raw) !!(x != num); }, stream);
+                           { return (__nv_bfloat16_raw) (__nv_bfloat16)!!(x != num); }, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoNeqF(float *a, size_t len, float num, cudaStream_t stream)
@@ -1382,7 +1382,7 @@ __global__ void tomoArangeKernel(T *output, T start, T step, size_t num_elements
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num_elements)
     {
-        output[idx] = start + static_cast<T>(idx) * step;
+        output[idx] = start + static_cast<T>((float)idx) * step;
     }
 }
 
@@ -1433,4 +1433,100 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeD(double *output, double start,
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeUZ(size_t *output, size_t start, size_t step, size_t num_element, cudaStream_t stream)
 {
     return tomoArange<size_t>(output, start, step, num_element, stream);
+}
+
+__global__ void tomoFillNormalHKernel(__half *a, size_t len, float mean, float stddev, unsigned long long seed)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < len)
+    {
+        curandState state;
+        curand_init(seed, idx, 0, &state);
+        float rand_val = curand_normal(&state);
+        a[idx] = __float2half(mean + stddev * rand_val);
+    }
+}
+
+__global__ void tomoFillNormalBKernel(__nv_bfloat16 *a, size_t len, float mean, float stddev, unsigned long long seed)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < len)
+    {
+        curandState state;
+        curand_init(seed, idx, 0, &state);
+        float rand_val = curand_normal(&state);
+        a[idx] = static_cast<__nv_bfloat16>(mean + stddev * rand_val);
+    }
+}
+
+__global__ void tomoFillUniformHKernel(__half *a, size_t len, unsigned long long seed)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < len)
+    {
+        curandState state;
+        curand_init(seed, idx, 0, &state);
+        float rand_val = curand_uniform(&state);
+        a[idx] = __float2half(rand_val);
+    }
+}
+
+__global__ void tomoFillUniformBKernel(__nv_bfloat16 *a, size_t len, unsigned long long seed)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < len)
+    {
+        curandState state;
+        curand_init(seed, idx, 0, &state);
+        float rand_val = curand_uniform(&state);
+        a[idx] = static_cast<__nv_bfloat16>(rand_val);
+    }
+}
+
+TOMO_EXTERN_C TOMO_OPS_API  cudaError_t tomoFillNormalH(__half_raw *a, size_t len, float mean, float stddev,  unsigned long long seed, cudaStream_t stream)
+{
+    if (len == 0)
+    {
+        return cudaErrorInvalidValue;
+    }
+    unsigned int threads_per_block = 256;
+    unsigned int blocks_per_grid = (unsigned int)(len + threads_per_block - 1) / threads_per_block;
+    tomoFillNormalHKernel<<<blocks_per_grid, threads_per_block, 0, stream>>>(reinterpret_cast<__half *>(a), len, mean, stddev, seed);
+    return cudaGetLastError();
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillNormalB(__nv_bfloat16_raw *a, size_t len, float mean, float stddev,  unsigned long long seed, cudaStream_t stream)
+{
+    if (len == 0)
+    {
+        return cudaErrorInvalidValue;
+    }
+    unsigned int threads_per_block = 256;
+    unsigned int blocks_per_grid =  (unsigned int)(len + threads_per_block - 1) / threads_per_block;
+    tomoFillNormalBKernel<<<blocks_per_grid, threads_per_block, 0, stream>>>(reinterpret_cast<__nv_bfloat16 *>(a), len, mean, stddev, seed);
+    return cudaGetLastError();
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUniformH(__half_raw *a, size_t len,  unsigned long long seed, cudaStream_t stream)
+{
+    if (len == 0)
+    {
+        return cudaErrorInvalidValue;
+    }
+    unsigned int threads_per_block = 256;
+    unsigned int blocks_per_grid =  (unsigned int)(len + threads_per_block - 1) / threads_per_block;
+    tomoFillUniformHKernel<<<blocks_per_grid, threads_per_block, 0, stream>>>(reinterpret_cast<__half *>(a), len, seed);
+    return cudaGetLastError();
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUniformB(__nv_bfloat16_raw *a, size_t len,  unsigned long long seed, cudaStream_t stream)
+{
+    if (len == 0)
+    {
+        return cudaErrorInvalidValue;
+    }
+    unsigned int threads_per_block = 256;
+    unsigned int blocks_per_grid =  (unsigned int)(len + threads_per_block - 1) / threads_per_block;
+    tomoFillUniformBKernel<<<blocks_per_grid, threads_per_block, 0, stream>>>(reinterpret_cast<__nv_bfloat16 *>(a), len, seed);
+    return cudaGetLastError();
 }

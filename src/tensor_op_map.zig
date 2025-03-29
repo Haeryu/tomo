@@ -5,7 +5,7 @@ const Stream = @import("stream.zig").Stream;
 const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const TensorOpReduction = @import("tensor_op_reduction.zig").TensorOpReduction;
-const Bf16 = @import("bf16.zig").BF16;
+const BF16 = @import("bf16.zig").BF16;
 
 pub fn TensorOpMap(comptime T: type) type {
     return struct {
@@ -13,7 +13,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn sin(self: *Self, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSinB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -31,7 +31,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn cos(self: *Self, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoCosB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -49,7 +49,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn tan(self: *Self, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoTanB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -67,7 +67,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn relu(self: *Self, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoReluB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -85,7 +85,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn leakyRelu(self: *Self, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoLeakyReluB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -103,7 +103,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn inv(self: *Self, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoInvB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -125,7 +125,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoEluB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -148,7 +148,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSeluB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -169,7 +169,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSoftplusB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -190,7 +190,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSigmoidB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -211,7 +211,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoTanhB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -232,7 +232,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSwishB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -253,7 +253,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoGeluB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -274,7 +274,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoHardSigmoidB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -295,7 +295,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoHardSwishB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -316,7 +316,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSoftsignB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -337,7 +337,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSquareB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -358,7 +358,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoSqrtB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -379,7 +379,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoLogB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -400,7 +400,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoExpB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -421,7 +421,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoAbsB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -439,12 +439,12 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn scale(
             self: *Self,
-            factor: if (T != Bf16) T else f32,
+            factor: if (T != BF16) T else f32,
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoScaleB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(Bf16.fromF32(factor)), stream.stream));
+                BF16 => {
+                    try err.checkCuda(c.tomoScaleB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(BF16.fromF32(factor)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoScaleH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(factor), stream.stream));
@@ -465,7 +465,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoPowfB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(exponent), stream.stream));
                 },
                 f16 => {
@@ -487,7 +487,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoPowB(@ptrCast(self.ptr.?), self.calcLen(), @intCast(exponent), stream.stream));
                 },
                 f16 => {
@@ -510,7 +510,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoClampB(@ptrCast(self.ptr.?), self.calcLen(), lower, upper, stream.stream));
                 },
                 f16 => {
@@ -531,7 +531,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoCeilB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -552,7 +552,7 @@ pub fn TensorOpMap(comptime T: type) type {
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoFloorB(@ptrCast(self.ptr.?), self.calcLen(), stream.stream));
                 },
                 f16 => {
@@ -570,12 +570,12 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn shift(
             self: *Self,
-            offset: if (T != Bf16) T else f32,
+            offset: if (T != BF16) T else f32,
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoShiftB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(Bf16.fromF32(offset)), stream.stream));
+                BF16 => {
+                    try err.checkCuda(c.tomoShiftB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(BF16.fromF32(offset)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoShiftH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(offset), stream.stream));
@@ -592,13 +592,13 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn scaleShift(
             self: *Self,
-            factor: T,
-            offset: T,
+            factor: if (T != BF16) T else f32,
+            offset: if (T != BF16) T else f32,
             stream: *const Stream,
         ) !void {
             switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoScaleShiftB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(factor), @bitCast(offset), stream.stream));
+                BF16 => {
+                    try err.checkCuda(c.tomoScaleShiftB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(BF16.fromF32(factor)), @bitCast(BF16.fromF32(offset)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoScaleShiftH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(factor), @bitCast(offset), stream.stream));
@@ -643,10 +643,10 @@ pub fn TensorOpMap(comptime T: type) type {
         //     }
         // }
 
-        pub fn gt(self: *Self, num: T, stream: *const Stream) !void {
+        pub fn gt(self: *Self, num: if (T != BF16) T else f32, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoGtB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
+                BF16 => {
+                    try err.checkCuda(c.tomoGtB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(BF16.fromF32(num)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoGtH(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
@@ -666,7 +666,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn gtEq(self: *Self, num: T, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoGtEqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
                 },
                 f16 => {
@@ -687,7 +687,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn lt(self: *Self, num: T, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoLtB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
                 },
                 f16 => {
@@ -708,7 +708,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn ltEq(self: *Self, num: T, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoLtEqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
                 },
                 f16 => {
@@ -729,7 +729,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn eq(self: *Self, num: T, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoEqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
                 },
                 f16 => {
@@ -750,7 +750,7 @@ pub fn TensorOpMap(comptime T: type) type {
 
         pub fn neq(self: *Self, num: T, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoNeqB(@ptrCast(self.ptr.?), self.calcLen(), @bitCast(num), stream.stream));
                 },
                 f16 => {
@@ -769,10 +769,10 @@ pub fn TensorOpMap(comptime T: type) type {
             }
         }
 
-        pub fn maskedFill(self: *Self, mask: *const Self, num: T, stream: *const Stream) !void {
+        pub fn maskedFill(self: *Self, mask: *const Self, num: if (T != BF16) T else f32, stream: *const Stream) !void {
             switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoMaskedFillB(@ptrCast(self.ptr.?), @ptrCast(mask.ptr), @bitCast(num), self.calcLen(), stream.stream));
+                BF16 => {
+                    try err.checkCuda(c.tomoMaskedFillB(@ptrCast(self.ptr.?), @ptrCast(mask.ptr), @bitCast(BF16.fromF32(num)), self.calcLen(), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoMaskedFillH(@ptrCast(self.ptr.?), @ptrCast(mask.ptr), @bitCast(num), self.calcLen(), stream.stream));
@@ -787,12 +787,12 @@ pub fn TensorOpMap(comptime T: type) type {
             }
         }
 
-        pub fn tril(self: *Self, fill: T, stream: *const Stream) !void {
+        pub fn tril(self: *Self, fill: if (T != BF16) T else f32, stream: *const Stream) !void {
             const rows = self.base.getRow();
             const cols = self.base.getCol();
             switch (T) {
-                Bf16 => {
-                    try err.checkCuda(c.tomoTrilB(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
+                BF16 => {
+                    try err.checkCuda(c.tomoTrilB(@ptrCast(self.ptr.?), rows, cols, @bitCast(BF16.fromF32(fill)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoTrilH(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
@@ -811,7 +811,7 @@ pub fn TensorOpMap(comptime T: type) type {
             const rows = self.base.getRow();
             const cols = self.base.getCol();
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoTriuB(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
                 },
                 f16 => {
@@ -830,7 +830,7 @@ pub fn TensorOpMap(comptime T: type) type {
         pub fn arange(self: *Self, start: T, step: T, stream: *const Stream) !void {
             const len = self.calcLen();
             switch (T) {
-                Bf16 => {
+                BF16 => {
                     try err.checkCuda(c.tomoArangeB(@ptrCast(self.ptr.?), start, step, len, stream.stream));
                 },
                 f16 => {

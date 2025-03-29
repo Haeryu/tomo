@@ -286,3 +286,9 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeB(__nv_bfloat16_raw *output, __
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeF(float *output, float start, float step, size_t num_element, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeD(double *output, double start, double step, size_t num_element, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArangeUZ(size_t *output, size_t start, size_t step, size_t num_element, cudaStream_t stream);
+
+
+TOMO_EXTERN_C TOMO_OPS_API  cudaError_t tomoFillNormalH(__half_raw *a, size_t len, float mean, float stddev,  unsigned long long seed, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillNormalB(__nv_bfloat16_raw *a, size_t len, float mean, float stddev,  unsigned long long seed, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUniformH(__half_raw *a, size_t len,  unsigned long long seed, cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUniformB(__nv_bfloat16_raw *a, size_t len,  unsigned long long seed, cudaStream_t stream);
