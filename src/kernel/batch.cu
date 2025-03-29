@@ -84,11 +84,11 @@ __global__ void tomoGetItemGradKernel(
 
     // Add gradient (no overlap in standard slicing)
     // gx[in_idx] = gx[in_idx] + gy[out_idx];
-    if constexpr (std::is_same_v<T, __half_raw>)
+    if constexpr (std::is_same_v<T, __half>)
     {
         atomicAdd(reinterpret_cast<__half *>(&gx[in_idx]), static_cast<__half>(gy[out_idx]));
     }
-    else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+    else if constexpr (std::is_same_v<T, __nv_bfloat16>)
     {
 
         atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gx[in_idx]), static_cast<__nv_bfloat16>(gy[out_idx]));

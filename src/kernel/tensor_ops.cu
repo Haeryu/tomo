@@ -248,10 +248,10 @@ cudaError_t tomoBroadcastTo(
 // }
 
 __global__ void tomoSumToKernel(
-    const __half_raw *d_in,    // Input tensor data
+    const __half *d_in,    // Input tensor data
     const size_t *in_shape,    // Input tensor shape
     const size_t *in_strides,  // Input tensor strides
-    __half_raw *d_out,         // Output tensor data
+    __half *d_out,         // Output tensor data
     const size_t *out_shape,   // Output tensor shape
     const size_t *out_strides, // Output tensor strides
     size_t out_size,           // Total number of output elements
@@ -360,10 +360,10 @@ __global__ void tomoSumToKernel(
 }
 
 __global__ void tomoSumToKernel(
-    const __nv_bfloat16_raw *d_in, // Input tensor data
+    const __nv_bfloat16 *d_in, // Input tensor data
     const size_t *in_shape,        // Input tensor shape
     const size_t *in_strides,      // Input tensor strides
-    __nv_bfloat16_raw *d_out,      // Output tensor data
+    __nv_bfloat16 *d_out,      // Output tensor data
     const size_t *out_shape,       // Output tensor shape
     const size_t *out_strides,     // Output tensor strides
     size_t out_size,               // Total number of output elements
@@ -1027,16 +1027,16 @@ struct TileDims<double>
 // }
 
 __global__ void tomoLinearKernelimpH(
-    const __half_raw *__restrict__ A, // (M x K)
-    const __half_raw *__restrict__ B, // (K x N)
+    const __half *__restrict__ A, // (M x K)
+    const __half *__restrict__ B, // (K x N)
     size_t M, size_t K, size_t N,
-    const __half_raw *__restrict__ bias, // (optional, M x N)
-    __half_raw *__restrict__ C,          // (M x N)
+    const __half *__restrict__ bias, // (optional, M x N)
+    __half *__restrict__ C,          // (M x N)
     size_t batch_size)
 {
-    constexpr int BM = TileDims<__half_raw>::BM;
-    constexpr int BK = TileDims<__half_raw>::BK;
-    constexpr int BN = TileDims<__half_raw>::BN;
+    constexpr int BM = TileDims<__half>::BM;
+    constexpr int BK = TileDims<__half>::BK;
+    constexpr int BN = TileDims<__half>::BN;
 
     // 2D index in the grid
     // Determine batch index from blockIdx.z
@@ -1061,19 +1061,19 @@ __global__ void tomoLinearKernelimpH(
 
     // Start offsets in shared memory
     // We'll keep two buffers for double‐buffering: As[2][BM][BK], Bs[2][BK][BN].
-    __shared__ __half_raw As[2][BM][BK];
-    __shared__ __half_raw Bs[2][BK][BN];
+    __shared__ __half As[2][BM][BK];
+    __shared__ __half Bs[2][BK][BN];
 
     // Each thread accumulates a sub‐tile of size TM x TN in registers
     // i.e. 4×4, or 4×8, etc.
-    __half_raw sum[TM][TN];
+    __half sum[TM][TN];
 #pragma unroll
     for (int i = 0; i < TM; i++)
     {
 #pragma unroll
         for (int j = 0; j < TN; j++)
         {
-            sum[i][j] = __half_raw(0.0f);
+            sum[i][j] = __half(0.0f);
         }
     }
 
@@ -1110,7 +1110,7 @@ __global__ void tomoLinearKernelimpH(
             }
             else
             {
-                As[loadIdx][a_row][a_col] = __half_raw(0.0f);
+                As[loadIdx][a_row][a_col] = __half(0.0f);
             }
         }
         // B tile is (BK×BN)
@@ -1126,7 +1126,7 @@ __global__ void tomoLinearKernelimpH(
             }
             else
             {
-                Bs[loadIdx][b_row][b_col] = __half_raw(0.0f);
+                Bs[loadIdx][b_row][b_col] = __half(0.0f);
             }
         }
     }
@@ -1157,7 +1157,7 @@ __global__ void tomoLinearKernelimpH(
                 }
                 else
                 {
-                    As[compIdx][a_row][a_col] = __half_raw(0.0f);
+                    As[compIdx][a_row][a_col] = __half(0.0f);
                 }
             }
             // B tile in the next offset
@@ -1173,7 +1173,7 @@ __global__ void tomoLinearKernelimpH(
                 }
                 else
                 {
-                    Bs[compIdx][b_row][b_col] = __half_raw(0.0f);
+                    Bs[compIdx][b_row][b_col] = __half(0.0f);
                 }
             }
         }
@@ -1190,8 +1190,8 @@ __global__ void tomoLinearKernelimpH(
         for (int m = 0; m < BK; m++)
         {
             // Each thread loads a tiny sub-vector from shared
-            __half_raw aFrag[TM];
-            __half_raw bFrag[TN];
+            __half aFrag[TM];
+            __half bFrag[TN];
 
 #pragma unroll
             for (int i = 0; i < TM; i++)
@@ -1235,7 +1235,7 @@ __global__ void tomoLinearKernelimpH(
                 if (colOut < N)
                 {
                     size_t outIdx = rowOut * N + colOut;
-                    __half_raw val = sum[i][j];
+                    __half val = sum[i][j];
                     if (bias != nullptr)
                     {
                         val = __hadd(val, bias[outIdx]);
@@ -1261,17 +1261,17 @@ __device__ inline __nv_bfloat16 bf16_fma(__nv_bfloat16 a, __nv_bfloat16 b, __nv_
 
 // The double‐buffered bfloat16 kernel
 __global__ void tomoLinearKernelimpB(
-    const __nv_bfloat16_raw *__restrict__ A, // (M x K)
-    const __nv_bfloat16_raw *__restrict__ B, // (K x N)
+    const __nv_bfloat16 *__restrict__ A, // (M x K)
+    const __nv_bfloat16 *__restrict__ B, // (K x N)
     size_t M, size_t K, size_t N,
-    const __nv_bfloat16_raw *__restrict__ bias, // (optional, M x N)
-    __nv_bfloat16_raw *__restrict__ C,          // (M x N)
+    const __nv_bfloat16 *__restrict__ bias, // (optional, M x N)
+    __nv_bfloat16 *__restrict__ C,          // (M x N)
     size_t batch_size)
 {
 
-    constexpr int BM = TileDims<__nv_bfloat16_raw>::BM;
-    constexpr int BK = TileDims<__nv_bfloat16_raw>::BK;
-    constexpr int BN = TileDims<__nv_bfloat16_raw>::BN;
+    constexpr int BM = TileDims<__nv_bfloat16>::BM;
+    constexpr int BK = TileDims<__nv_bfloat16>::BK;
+    constexpr int BN = TileDims<__nv_bfloat16>::BN;
 
     // Determine batch index from blockIdx.z
     const int batch_idx = blockIdx.z;
@@ -1294,18 +1294,18 @@ __global__ void tomoLinearKernelimpB(
     const int globalCol = blockCol * BN;
 
     // Double‐buffered shared memory
-    __shared__ __nv_bfloat16_raw As[2][BM][BK];
-    __shared__ __nv_bfloat16_raw Bs[2][BK][BN];
+    __shared__ __nv_bfloat16 As[2][BM][BK];
+    __shared__ __nv_bfloat16 Bs[2][BK][BN];
 
     // Accumulator sub‐tile in registers (TM × TN)
-    __nv_bfloat16_raw sum[TM][TN];
+    __nv_bfloat16 sum[TM][TN];
 #pragma unroll
     for (int i = 0; i < TM; i++)
     {
 #pragma unroll
         for (int j = 0; j < TN; j++)
         {
-            sum[i][j] = (__nv_bfloat16_raw)0.0f;
+            sum[i][j] = (__nv_bfloat16)0.0f;
         }
     }
 
@@ -1332,7 +1332,7 @@ __global__ void tomoLinearKernelimpB(
             }
             else
             {
-                As[loadIdx][a_row][a_col] = (__nv_bfloat16_raw)0.0f;
+                As[loadIdx][a_row][a_col] = (__nv_bfloat16)0.0f;
             }
         }
         // B tile (BK×BN)
@@ -1348,7 +1348,7 @@ __global__ void tomoLinearKernelimpB(
             }
             else
             {
-                Bs[loadIdx][b_row][b_col] = (__nv_bfloat16_raw)0.0f;
+                Bs[loadIdx][b_row][b_col] = (__nv_bfloat16)0.0f;
             }
         }
     }
@@ -1377,7 +1377,7 @@ __global__ void tomoLinearKernelimpB(
                 }
                 else
                 {
-                    As[compIdx][a_row][a_col] = (__nv_bfloat16_raw)0.0f;
+                    As[compIdx][a_row][a_col] = (__nv_bfloat16)0.0f;
                 }
             }
             for (int idx = tid; idx < BK * BN; idx += tdim)
@@ -1392,7 +1392,7 @@ __global__ void tomoLinearKernelimpB(
                 }
                 else
                 {
-                    Bs[compIdx][b_row][b_col] = (__nv_bfloat16_raw)0.0f;
+                    Bs[compIdx][b_row][b_col] = (__nv_bfloat16)0.0f;
                 }
             }
         }
@@ -1402,8 +1402,8 @@ __global__ void tomoLinearKernelimpB(
 #pragma unroll
         for (int m = 0; m < BK; m++)
         {
-            __nv_bfloat16_raw aFrag[TM];
-            __nv_bfloat16_raw bFrag[TN];
+            __nv_bfloat16 aFrag[TM];
+            __nv_bfloat16 bFrag[TN];
 #pragma unroll
             for (int i = 0; i < TM; i++)
             {
@@ -1444,7 +1444,7 @@ __global__ void tomoLinearKernelimpB(
                 if (colOut < N)
                 {
                     size_t outIdx = rowOut * N + colOut;
-                    __nv_bfloat16_raw val = sum[i][j];
+                    __nv_bfloat16 val = sum[i][j];
                     if (bias != nullptr)
                     {
                         val = val + bias[outIdx];
@@ -1812,12 +1812,12 @@ cudaError_t tomoLinearImp(T const *A, T const *B, size_t M, size_t K, size_t N, 
     dim3 grid(blocksPerCol, blocksPerRow, (unsigned int)batch_size);
     dim3 block(BN / TN, BM / TM); 
 
-    if constexpr (std::is_same_v<T, __half_raw>)
+    if constexpr (std::is_same_v<T, __half>)
     {
         tomoLinearKernelimpH<<<grid, block, 0, stream>>>(
             A, B, M, K, N, bias, C, batch_size);
     }
-    else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+    else if constexpr (std::is_same_v<T, __nv_bfloat16>)
     {
         tomoLinearKernelimpB<<<grid, block, 0, stream>>>(
             A, B, M, K, N, bias, C, batch_size);
@@ -1836,9 +1836,9 @@ cudaError_t tomoLinearImp(T const *A, T const *B, size_t M, size_t K, size_t N, 
     return cudaGetLastError();
 }
 
-__global__ void tomoTransposeKernelH(const __half_raw *A, size_t M, size_t N, __half_raw *C)
+__global__ void tomoTransposeKernelH(const __half *A, size_t M, size_t N, __half *C)
 {
-    __shared__ __half_raw tile_h[BLOCK_SIZE][BLOCK_SIZE + 1];
+    __shared__ __half tile_h[BLOCK_SIZE][BLOCK_SIZE + 1];
 
     // (row, col) in the original A
     size_t row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
@@ -1848,7 +1848,7 @@ __global__ void tomoTransposeKernelH(const __half_raw *A, size_t M, size_t N, __
     if (row < M && col < N)
         tile_h[threadIdx.y][threadIdx.x] = A[row * N + col];
     else
-        tile_h[threadIdx.y][threadIdx.x] = (__half_raw)0.0;
+        tile_h[threadIdx.y][threadIdx.x] = (__half)0.0;
 
     __syncthreads();
 
@@ -1861,9 +1861,9 @@ __global__ void tomoTransposeKernelH(const __half_raw *A, size_t M, size_t N, __
         C[new_row * M + new_col] = tile_h[threadIdx.x][threadIdx.y];
 }
 
-__global__ void tomoTransposeKernelB(const __nv_bfloat16_raw *A, size_t M, size_t N, __nv_bfloat16_raw *C)
+__global__ void tomoTransposeKernelB(const __nv_bfloat16 *A, size_t M, size_t N, __nv_bfloat16 *C)
 {
-    __shared__ __nv_bfloat16_raw tile_b[BLOCK_SIZE][BLOCK_SIZE + 1];
+    __shared__ __nv_bfloat16 tile_b[BLOCK_SIZE][BLOCK_SIZE + 1];
 
     size_t row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
     size_t col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
@@ -1871,7 +1871,7 @@ __global__ void tomoTransposeKernelB(const __nv_bfloat16_raw *A, size_t M, size_
     if (row < M && col < N)
         tile_b[threadIdx.y][threadIdx.x] = A[row * N + col];
     else
-        tile_b[threadIdx.y][threadIdx.x] = (__nv_bfloat16_raw)0.0;
+        tile_b[threadIdx.y][threadIdx.x] = (__nv_bfloat16)0.0;
 
     __syncthreads();
 
@@ -1967,11 +1967,11 @@ cudaError_t tomoTranspose(T const *A, size_t M, size_t N, T *C, cudaStream_t str
     dim3 gridDim(((unsigned int)N + BLOCK_SIZE - 1) / BLOCK_SIZE,
                  ((unsigned int)M + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
-    if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+    if constexpr (std::is_same_v<T, __nv_bfloat16>)
     {
         tomoTransposeKernelB<<<gridDim, blockDim, 0, stream>>>(A, M, N, C);
     }
-    else if constexpr (std::is_same_v<T, __half_raw>)
+    else if constexpr (std::is_same_v<T, __half>)
     {
         tomoTransposeKernelH<<<gridDim, blockDim, 0, stream>>>(A, M, N, C);
     }
@@ -2994,12 +2994,12 @@ __global__ void tomoCol2im1dKernel(
         //   else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>) { ... }
         //   else { atomicAdd(...); }
 
-        if constexpr (std::is_same_v<T, __half_raw>)
+        if constexpr (std::is_same_v<T, __half>)
         {
             atomicAdd(reinterpret_cast<__half *>(&d_in[in_linear]),
                       static_cast<__half>(val));
         }
-        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        else if constexpr (std::is_same_v<T, __nv_bfloat16>)
         {
             atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&d_in[in_linear]),
                       static_cast<__nv_bfloat16>(val));
@@ -3097,21 +3097,21 @@ __device__ inline double deviceInfinity<double>(bool negative)
 // Specialize for __half_raw
 // We do a simple conversion from float∞ to half∞.
 template <>
-__device__ inline __half_raw deviceInfinity<__half_raw>(bool negative)
+__device__ inline __half deviceInfinity<__half>(bool negative)
 {
     float inf = negative ? -std::numeric_limits<float>::infinity()
                          : std::numeric_limits<float>::infinity();
     __half h_inf = __float2half(inf);
-    return *reinterpret_cast<__half_raw *>(&h_inf);
+    return *reinterpret_cast<__half *>(&h_inf);
 }
 
 template <>
-__device__ inline __nv_bfloat16_raw deviceInfinity<__nv_bfloat16_raw>(bool negative)
+__device__ inline __nv_bfloat16 deviceInfinity<__nv_bfloat16>(bool negative)
 {
     float inf = negative ? -std::numeric_limits<float>::infinity()
                          : std::numeric_limits<float>::infinity();
     __nv_bfloat16 b_inf = __float2bfloat16(inf);
-    return *reinterpret_cast<__nv_bfloat16_raw *>(&b_inf);
+    return *reinterpret_cast<__nv_bfloat16 *>(&b_inf);
 }
 
 template <typename T>
@@ -3603,11 +3603,11 @@ __global__ void tomoMaxPool2dBackwardKernel(
         size_t in_index = (n * C + c) * H * W + max_h * W + max_w;
         T grad_val = gradOut[idx];
         // Atomic add with type handling
-        if constexpr (std::is_same_v<T, __half_raw>)
+        if constexpr (std::is_same_v<T, __half>)
         {
             atomicAdd(reinterpret_cast<__half *>(&gradIn[in_index]), __half(grad_val));
         }
-        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        else if constexpr (std::is_same_v<T, __nv_bfloat16>)
         {
             atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gradIn[in_index]), __nv_bfloat16(grad_val));
         }
@@ -3781,12 +3781,12 @@ __global__ void tomoAvgPool2dBackwardKernel(
                 size_t in_index = (n * C + c) * (H * W) + ih * W + iw;
                 // atomicAdd(&gradIn[in_index], factor);
 
-                if constexpr (std::is_same_v<T, __half_raw>)
+                if constexpr (std::is_same_v<T, __half>)
                 {
                     atomicAdd(reinterpret_cast<__half *>(&gradIn[in_index]),
                               static_cast<__half>(factor));
                 }
-                else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+                else if constexpr (std::is_same_v<T, __nv_bfloat16>)
                 {
                     atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&gradIn[in_index]),
                               static_cast<__nv_bfloat16>(factor));
@@ -3877,12 +3877,12 @@ __global__ void embeddingBackwardKernel(
         size_t b = idx / (embedding_dim * sequence_length);
         size_t emb_idx = indices[b * sequence_length + s];
         if (emb_idx < num_embeddings) {
-            if constexpr (std::is_same_v<T, __half_raw>)
+            if constexpr (std::is_same_v<T, __half>)
         {
             atomicAdd(reinterpret_cast<__half *>(&grad_weight[emb_idx * embedding_dim + d]),
                       static_cast<__half>(grad_output[idx]));
         }
-        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        else if constexpr (std::is_same_v<T, __nv_bfloat16>)
         {
             atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&grad_weight[emb_idx * embedding_dim + d]),
                       static_cast<__nv_bfloat16>(grad_output[idx]));
@@ -3960,9 +3960,9 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBroadcastToH(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoBroadcastTo<__half_raw>(
-        d_in,
-        d_out,
+    return tomoBroadcastTo<__half>(
+       (__half *) d_in,
+       (__half *) d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -3990,9 +3990,9 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoBroadcastToB(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoBroadcastTo<__nv_bfloat16_raw>(
-        d_in,
-        d_out,
+    return tomoBroadcastTo<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in,
+        (__nv_bfloat16*)d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -4103,8 +4103,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSumToH(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoSumTo<__half_raw>(
-        d_in, d_out,
+    return tomoSumTo(
+        (__half const*)d_in, (__half *)d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -4128,8 +4128,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSumToB(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoSumTo<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoSumTo(
+        (__nv_bfloat16 const*)d_in,  (__nv_bfloat16*)d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -4194,22 +4194,22 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearH(
     __half_raw const *A, __half_raw const *B, size_t M, size_t K, size_t N, __half_raw const *bias, __half_raw *C,
     cudaStream_t stream)
 {
-    return tomoLinear<__half_raw>(
-        A, B,
+    return tomoLinear<__half>(
+        (__half *)A, (__half *)B,
         M, K,
-        N, bias,
-        C, stream);
+        N, (__half *)bias,
+        (__half *)C, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearB(
     __nv_bfloat16_raw const *A, __nv_bfloat16_raw const *B, size_t M, size_t K, size_t N, __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C,
     cudaStream_t stream)
 {
-    return tomoLinear<__nv_bfloat16_raw>(
-        A, B,
+    return tomoLinear<__nv_bfloat16>(
+        (__nv_bfloat16*)A,  (__nv_bfloat16*)B,
         M, K,
-        N, bias,
-        C, stream);
+        N,  (__nv_bfloat16*)bias,
+        (__nv_bfloat16*)C, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearF(
@@ -4238,14 +4238,14 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpH(
     __half_raw const *A, __half_raw const *B, size_t M, size_t K, size_t N,
     __half_raw const *bias, __half_raw *C, size_t batch_size, cudaStream_t stream)
 {
-    return tomoLinearImp<__half_raw>(A, B, M, K, N, bias, C, batch_size, stream);
+    return tomoLinearImp<__half>((__half *)A, (__half *)B, M, K, N, (__half *)bias, (__half *)C, batch_size, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpB(
     __nv_bfloat16_raw const *A, __nv_bfloat16_raw const *B, size_t M, size_t K, size_t N,
     __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C, size_t batch_size, cudaStream_t stream)
 {
-    return tomoLinearImp<__nv_bfloat16_raw>(A, B, M, K, N, bias, C, batch_size, stream);
+    return tomoLinearImp<__nv_bfloat16>( (__nv_bfloat16*)A,  (__nv_bfloat16*)B, M, K, N,  (__nv_bfloat16*)bias,  (__nv_bfloat16*)C, batch_size, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpF(
@@ -4264,20 +4264,20 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoLinearImpD(
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeH(__half_raw const *A, size_t M, size_t N, __half_raw *C, cudaStream_t stream)
 {
-    return tomoTranspose<__half_raw>(
-        A,
+    return tomoTranspose<__half>(
+        (__half *)A,
         M,
         N,
-        C, stream);
+        (__half *)C, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeB(__nv_bfloat16_raw const *A, size_t M, size_t N, __nv_bfloat16_raw *C, cudaStream_t stream)
 {
-    return tomoTranspose<__nv_bfloat16_raw>(
-        A,
+    return tomoTranspose<__nv_bfloat16>(
+        (__nv_bfloat16*)A,
         M,
         N,
-        C, stream);
+        (__nv_bfloat16*)C, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeF(float const *A, size_t M, size_t N, float *C, cudaStream_t stream)
@@ -4313,8 +4313,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToH(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoMaxTo<__half_raw>(
-        d_in, d_out,
+    return tomoMaxTo<__half>(
+        (__half *)d_in, (__half *)d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -4338,8 +4338,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxToB(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoMaxTo<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoMaxTo<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in, (__nv_bfloat16*) d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -4415,8 +4415,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToH(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoMinTo<__half_raw>(
-        d_in, d_out,
+    return tomoMinTo<__half>(
+        (__half *)d_in, (__half *)d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -4440,8 +4440,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMinToB(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoMinTo<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoMinTo<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in,  (__nv_bfloat16*)d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -4519,8 +4519,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTensordotH(
     size_t out_size, size_t num_contracted,
     cudaStream_t stream)
 {
-    return tomoTensordot<__half_raw>(
-        d_a, d_b, d_out,
+    return tomoTensordot<__half>(
+        (__half *)d_a, (__half *)d_b, (__half *)d_out,
         a_shape, a_shape_len,
         b_shape, b_shape_len,
         out_shape, out_shape_len,
@@ -4551,8 +4551,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTensordotB(
     size_t out_size, size_t num_contracted,
     cudaStream_t stream)
 {
-    return tomoTensordot<__nv_bfloat16_raw>(
-        d_a, d_b, d_out,
+    return tomoTensordot<__nv_bfloat16>(
+        (__nv_bfloat16*)d_a,  (__nv_bfloat16*)d_b, (__nv_bfloat16*) d_out,
         a_shape, a_shape_len,
         b_shape, b_shape_len,
         out_shape, out_shape_len,
@@ -4641,8 +4641,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeExH(
     size_t const in_size, size_t const out_size,
     cudaStream_t const stream)
 {
-    return tomoTransposeEx<__half_raw>(
-        d_in, d_out, in_shape, in_shape_len, out_shape, out_shape_len,
+    return tomoTransposeEx<__half>(
+        (__half *)d_in,(__half *) d_out, in_shape, in_shape_len, out_shape, out_shape_len,
         in_strides, in_strides_len, out_strides, out_strides_len,
         perm, perm_len, nd, in_size, out_size, stream);
 }
@@ -4658,8 +4658,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoTransposeExB(
     size_t const in_size, size_t const out_size,
     cudaStream_t const stream)
 {
-    return tomoTransposeEx<__nv_bfloat16_raw>(
-        d_in, d_out, in_shape, in_shape_len, out_shape, out_shape_len,
+    return tomoTransposeEx<__nv_bfloat16>(
+        (__nv_bfloat16*) d_in, (__nv_bfloat16*) d_out, in_shape, in_shape_len, out_shape, out_shape_len,
         in_strides, in_strides_len, out_strides, out_strides_len,
         perm, perm_len, nd, in_size, out_size, stream);
 }
@@ -4706,8 +4706,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoRollaxisH(
     size_t const nd, size_t const in_size, size_t const out_size,
     cudaStream_t const stream)
 {
-    return tomoRollaxis<__half_raw>(
-        d_in, d_out, in_shape, in_shape_len, in_strides, in_strides_len,
+    return tomoRollaxis<__half>(
+        (__half *)d_in,(__half *) d_out, in_shape, in_shape_len, in_strides, in_strides_len,
         axis, start, nd, in_size, out_size, stream);
 }
 
@@ -4719,8 +4719,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoRollaxisB(
     size_t const nd, size_t const in_size, size_t const out_size,
     cudaStream_t const stream)
 {
-    return tomoRollaxis<__nv_bfloat16_raw>(
-        d_in, d_out, in_shape, in_shape_len, in_strides, in_strides_len,
+    return tomoRollaxis<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in,  (__nv_bfloat16*)d_out, in_shape, in_shape_len, in_strides, in_strides_len,
         axis, start, nd, in_size, out_size, stream);
 }
 
@@ -4760,8 +4760,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSwapaxesH(
     size_t nd, size_t in_size, size_t out_size,
     cudaStream_t stream)
 {
-    return tomoSwapaxes<__half_raw>(
-        d_in, d_out, in_shape, in_shape_len, out_shape, out_shape_len,
+    return tomoSwapaxes<__half>(
+        (__half *)d_in, (__half *)d_out, in_shape, in_shape_len, out_shape, out_shape_len,
         in_strides, in_strides_len, out_strides, out_strides_len,
         axis1, axis2, nd, in_size, out_size, stream);
 }
@@ -4776,8 +4776,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSwapaxesB(
     size_t nd, size_t in_size, size_t out_size,
     cudaStream_t stream)
 {
-    return tomoSwapaxes<__nv_bfloat16_raw>(
-        d_in, d_out, in_shape, in_shape_len, out_shape, out_shape_len,
+    return tomoSwapaxes<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in,  (__nv_bfloat16*)d_out, in_shape, in_shape_len, out_shape, out_shape_len,
         in_strides, in_strides_len, out_strides, out_strides_len,
         axis1, axis2, nd, in_size, out_size, stream);
 }
@@ -4824,8 +4824,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2colH(
     size_t dy, size_t dx,
     cudaStream_t stream)
 {
-    return tomoIm2col<__half_raw>(
-        d_img, d_col,
+    return tomoIm2col<__half>(
+        (__half *)d_img, (__half *)d_col,
         n, c, h, w,
         kh, kw,
         sy, sx,
@@ -4844,8 +4844,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2colB(
     size_t dy, size_t dx,
     cudaStream_t stream)
 {
-    return tomoIm2col<__nv_bfloat16_raw>(
-        d_img, d_col,
+    return tomoIm2col<__nv_bfloat16>(
+        (__nv_bfloat16*)d_img,  (__nv_bfloat16*)d_col,
         n, c, h, w,
         kh, kw,
         sy, sx,
@@ -4904,8 +4904,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2imH(
     size_t dx, size_t dy,
     cudaStream_t stream)
 {
-    return tomoCol2im<__half_raw>(
-        d_col, d_img,
+    return tomoCol2im<__half>(
+        (__half *)d_col, (__half *)d_img,
         n, c, h, w,
         kh, kw,
         sy, sx,
@@ -4924,8 +4924,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2imB(
     size_t dx, size_t dy,
     cudaStream_t stream)
 {
-    return tomoCol2im<__nv_bfloat16_raw>(
-        d_col, d_img,
+    return tomoCol2im<__nv_bfloat16>(
+        (__nv_bfloat16*)d_col,  (__nv_bfloat16*)d_img,
         n, c, h, w,
         kh, kw,
         sy, sx,
@@ -4984,8 +4984,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dH(
     size_t dilation,
     cudaStream_t stream)
 {
-    return tomoIm2col1d<__half_raw>(
-        d_in, d_col,
+    return tomoIm2col1d<__half>(
+        (__half *)d_in, (__half *)d_col,
         n, c, l, k,
         stride, pad, dilation,
         stream);
@@ -5001,8 +5001,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoIm2col1dB(
     size_t dilation,
     cudaStream_t stream)
 {
-    return tomoIm2col1d<__nv_bfloat16_raw>(
-        d_in, d_col,
+    return tomoIm2col1d<__nv_bfloat16>(
+        (__nv_bfloat16*) d_in,  (__nv_bfloat16*)d_col,
         n, c, l, k,
         stride, pad, dilation,
         stream);
@@ -5052,8 +5052,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dH(
     size_t dilation,
     cudaStream_t stream)
 {
-    return tomoCol2im1d<__half_raw>(
-        d_col, d_in,
+    return tomoCol2im1d<__half>(
+        (__half *)d_col, (__half *)d_in,
         n, c, l, k,
         stride, pad, dilation,
         stream);
@@ -5069,8 +5069,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoCol2im1dB(
     size_t dilation,
     cudaStream_t stream)
 {
-    return tomoCol2im1d<__nv_bfloat16_raw>(
-        d_col, d_in,
+    return tomoCol2im1d<__nv_bfloat16>(
+        (__nv_bfloat16*)d_col,  (__nv_bfloat16*)d_in,
         n, c, l, k,
         stride, pad, dilation,
         stream);
@@ -5124,8 +5124,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxH(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoArgmax<__half_raw>(
-        d_in, d_out,
+    return tomoArgmax<__half>(
+        (__half *)d_in, d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -5148,8 +5148,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgmaxB(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoArgmax<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoArgmax<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in, d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -5222,8 +5222,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminH(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoArgmin<__half_raw>(
-        d_in, d_out,
+    return tomoArgmin<__half>(
+        (__half *)d_in, d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -5246,8 +5246,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoArgminB(
     size_t nd,
     cudaStream_t stream)
 {
-    return tomoArgmin<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoArgmin<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in, d_out,
         in_shape, in_shape_len,
         out_shape, out_shape_len,
         in_strides, in_strides_len,
@@ -5312,8 +5312,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardH(
     size_t pH, size_t pW,
     cudaStream_t stream)
 {
-    return tomoMaxPool2dForward<__half_raw>(
-        d_in, d_out,
+    return tomoMaxPool2dForward<__half>(
+        (__half *)d_in, (__half *)d_out,
         N, C, H, W,
         outH, outW,
         kH, kW,
@@ -5331,8 +5331,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dForwardB(
     size_t pH, size_t pW,
     cudaStream_t stream)
 {
-    return tomoMaxPool2dForward<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoMaxPool2dForward<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in,  (__nv_bfloat16*)d_out,
         N, C, H, W,
         outH, outW,
         kH, kW,
@@ -5390,8 +5390,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardH(
     size_t padH, size_t padW,
     cudaStream_t stream)
 {
-    return tomoMaxPool2dBackward<__half_raw>(
-        input, gradOut, gradIn,
+    return tomoMaxPool2dBackward<__half>(
+        (__half *)input, (__half *)gradOut, (__half *)gradIn,
         N, C, H, W,
         outH, outW,
         kernelH, kernelW,
@@ -5411,8 +5411,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoMaxPool2dBackwardB(
     size_t padH, size_t padW,
     cudaStream_t stream)
 {
-    return tomoMaxPool2dBackward<__nv_bfloat16_raw>(
-        input, gradOut, gradIn,
+    return tomoMaxPool2dBackward<__nv_bfloat16>(
+        (__nv_bfloat16*)input,  (__nv_bfloat16*)gradOut,  (__nv_bfloat16*)gradIn,
         N, C, H, W,
         outH, outW,
         kernelH, kernelW,
@@ -5472,8 +5472,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardH(
     size_t pH, size_t pW,
     cudaStream_t stream)
 {
-    return tomoAvgPool2dForward<__half_raw>(
-        d_in, d_out,
+    return tomoAvgPool2dForward<__half>(
+        (__half *) d_in, (__half *)d_out,
         N, C, H, W,
         outH, outW,
         kH, kW,
@@ -5491,8 +5491,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dForwardB(
     size_t pH, size_t pW,
     cudaStream_t stream)
 {
-    return tomoAvgPool2dForward<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoAvgPool2dForward<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in,  (__nv_bfloat16*)d_out,
         N, C, H, W,
         outH, outW,
         kH, kW,
@@ -5548,8 +5548,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardH(
     size_t pH, size_t pW,
     cudaStream_t stream)
 {
-    return tomoAvgPool2dBackward<__half_raw>(
-        d_in, d_out,
+    return tomoAvgPool2dBackward<__half>(
+        (__half *)d_in, (__half *)d_out,
         N, C, H, W,
         outH, outW,
         kH, kW,
@@ -5567,8 +5567,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoAvgPool2dBackwardB(
     size_t pH, size_t pW,
     cudaStream_t stream)
 {
-    return tomoAvgPool2dBackward<__nv_bfloat16_raw>(
-        d_in, d_out,
+    return tomoAvgPool2dBackward<__nv_bfloat16>(
+        (__nv_bfloat16*)d_in, (__nv_bfloat16*) d_out,
         N, C, H, W,
         outH, outW,
         kH, kW,
@@ -5626,8 +5626,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardH(
     size_t sequence_length,
     cudaStream_t stream)
 {
-    return tomoEmbeddingForward<__half_raw>(
-        weight, indices, output,
+    return tomoEmbeddingForward<__half>(
+        (__half *)weight, indices, (__half *)output,
         num_embeddings, embedding_dim, batch_size, sequence_length, stream);
 }
 
@@ -5641,8 +5641,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingForwardB(
     size_t sequence_length,
     cudaStream_t stream)
 {
-    return tomoEmbeddingForward<__nv_bfloat16_raw>(
-        weight, indices, output,
+    return tomoEmbeddingForward<__nv_bfloat16>(
+        (__nv_bfloat16*)weight, indices,  (__nv_bfloat16*)output,
         num_embeddings, embedding_dim, batch_size, sequence_length, stream);
 }
 
@@ -5688,8 +5688,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardH(
     size_t sequence_length,
     cudaStream_t stream)
 {
-    return tomoEmbeddingBackward<__half_raw>(
-        grad_output, indices, grad_weight,
+    return tomoEmbeddingBackward<__half>(
+        (__half *)grad_output, indices, (__half *)grad_weight,
         num_embeddings, embedding_dim, batch_size, sequence_length, stream);
 }
 
@@ -5703,8 +5703,8 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoEmbeddingBackwardB(
     size_t sequence_length,
     cudaStream_t stream)
 {
-    return tomoEmbeddingBackward<__nv_bfloat16_raw>(
-        grad_output, indices, grad_weight,
+    return tomoEmbeddingBackward<__nv_bfloat16>(
+        (__nv_bfloat16*)grad_output, indices,  (__nv_bfloat16*)grad_weight,
         num_embeddings, embedding_dim, batch_size, sequence_length, stream);
 }
 

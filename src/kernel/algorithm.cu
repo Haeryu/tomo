@@ -44,12 +44,12 @@ cudaError_t tomoFill(auto *a, size_t len, auto val, cudaStream_t stream)
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillH(__half_raw *a, size_t len, __half_raw val, cudaStream_t stream)
 {
-    return tomoFill(a, len, val, stream);
+    return tomoFill((__half*)a, len,(__half) val, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw val, cudaStream_t stream)
 {
-    return tomoFill(a, len, val, stream);
+    return tomoFill((__nv_bfloat16*)a, len, (__nv_bfloat16)val, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillF(float *a, size_t len, float val, cudaStream_t stream)
@@ -96,12 +96,12 @@ cudaError_t tomoSortDesc(auto *a, size_t len, cudaStream_t stream)
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSortDescH(__half_raw *a, size_t len, cudaStream_t stream)
 {
-    return tomoSortDesc(a, len, stream);
+    return tomoSortDesc((__half*)a, len, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSortDescB(__nv_bfloat16_raw *a, size_t len, cudaStream_t stream)
 {
-    return tomoSortDesc(a, len, stream);
+    return tomoSortDesc((__nv_bfloat16*)a, len, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSortDescF(float *a, size_t len, cudaStream_t stream)
@@ -148,12 +148,12 @@ cudaError_t tomoSortAsc(auto *a, size_t len, cudaStream_t stream)
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSortAscH(__half_raw *a, size_t len, cudaStream_t stream)
 {
-    return tomoSortAsc(a, len, stream);
+    return tomoSortAsc((__half*)a, len, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSortAscB(__nv_bfloat16_raw *a, size_t len, cudaStream_t stream)
 {
-    return tomoSortAsc(a, len, stream);
+    return tomoSortAsc((__nv_bfloat16*)a, len, stream);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoSortAscF(float *a, size_t len, cudaStream_t stream)
@@ -201,12 +201,12 @@ cudaError_t tomoFind(auto *a, size_t len, auto val, cudaStream_t stream, size_t 
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFindH(__half_raw *a, size_t len, __half_raw val, cudaStream_t stream, size_t *i)
 {
-    return tomoFind(a, len, val, stream, i);
+    return tomoFind((__half*)a, len, (__half)val, stream, i);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFindB(__nv_bfloat16_raw *a, size_t len, __nv_bfloat16_raw val, cudaStream_t stream, size_t *i)
 {
-    return tomoFind(a, len, val, stream, i);
+    return tomoFind((__nv_bfloat16*)a, len, (__nv_bfloat16)val, stream, i);
 }
 
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFindF(float *a, size_t len, float val, cudaStream_t stream, size_t *i)
