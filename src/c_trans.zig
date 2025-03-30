@@ -11262,6 +11262,10 @@ pub extern fn tomoFillNormalH(a: [*c]__half_raw, len: usize, mean: f32, stddev: 
 pub extern fn tomoFillNormalB(a: [*c]__nv_bfloat16_raw, len: usize, mean: f32, stddev: f32, seed: c_ulonglong, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoFillUniformH(a: [*c]__half_raw, len: usize, seed: c_ulonglong, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoFillUniformB(a: [*c]__nv_bfloat16_raw, len: usize, seed: c_ulonglong, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoHasNaNH(data: [*c]const __half_raw, len: usize, result: [*c]bool, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoHasNaNB(data: [*c]const __nv_bfloat16_raw, len: usize, result: [*c]bool, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoHasNaNF(data: [*c]const f32, len: usize, result: [*c]bool, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoHasNaND(data: [*c]const f64, len: usize, result: [*c]bool, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceH(a: [*c]const __half_raw, len: usize, host_out: [*c]__half_raw, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceB(a: [*c]const __nv_bfloat16_raw, len: usize, host_out: [*c]__nv_bfloat16_raw, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSumReduceF(a: [*c]const f32, len: usize, host_out: [*c]f32, stream: cudaStream_t) cudaError_t;
@@ -13252,8 +13256,10 @@ pub const _NV_TARGET_VAL_SM_100 = @as(c_int, 1000);
 pub const _NV_TARGET_VAL = @as(c_int, 0);
 pub const _NV_TARGET_IS_HOST = @as(c_int, 1);
 pub const _NV_TARGET_IS_DEVICE = @as(c_int, 0);
-pub const _NV_DEVICE_CHECK = @compileError("unable to translate macro: undefined identifier `false`");
-// C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include/nv/detail/__target_macros:164:11
+pub inline fn _NV_DEVICE_CHECK(q: anytype) @TypeOf(@"false") {
+    _ = &q;
+    return @"false";
+}
 pub inline fn _NV_TARGET_PROVIDES(q: anytype) @TypeOf(_NV_DEVICE_CHECK(_NV_TARGET_VAL >= q)) {
     _ = &q;
     return _NV_DEVICE_CHECK(_NV_TARGET_VAL >= q);
@@ -14210,6 +14216,12 @@ pub const CUSOLVER_DEPRECATED = @compileError("unable to translate macro: undefi
 pub const CUSOLVER_DEPRECATED_ENUM = @compileError("unable to translate macro: undefined identifier `deprecated`");
 // C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include/cusolver_common.h:128:15
 pub const CUSOLVERMG_H_ = "";
+pub const _LIBCPP_STDBOOL_H = "";
+pub const __STDBOOL_H = "";
+pub const __bool_true_false_are_defined = @as(c_int, 1);
+pub const @"bool" = bool;
+pub const @"true" = @as(c_int, 1);
+pub const @"false" = @as(c_int, 0);
 pub const TOMO_OPS_API = @compileError("unable to translate macro: undefined identifier `dllimport`");
 // C:\Users\haeryu\Desktop\workspace\zig\study\cuda\tomo\src\kernel/tomo_dll.h:6:9
 pub const TOMO_EXTERN_C = @compileError("unable to translate C expr: unexpected token 'extern'");

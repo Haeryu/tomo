@@ -24,9 +24,9 @@ pub fn build(b: *std.Build) void {
     lib_mod.addLibraryPath(b.path("src/kernel/out/"));
 
     lib_mod.linkSystemLibrary("cudart64_12", .{});
-    lib_mod.linkSystemLibrary("cublas64_12", .{});
-    lib_mod.linkSystemLibrary("cublasLt64_12", .{});
     lib_mod.linkSystemLibrary("curand64_10", .{});
+    // lib_mod.linkSystemLibrary("cublas64_12", .{});
+    // lib_mod.linkSystemLibrary("cublasLt64_12", .{});
     // lib_mod.linkSystemLibrary("cufft64_11", .{});
     // lib_mod.linkSystemLibrary("cudnn64_9", .{});
     // lib_mod.linkSystemLibrary("cusolver64_11", .{});

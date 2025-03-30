@@ -312,7 +312,7 @@ __global__ void tomoSumToKernel(
     }
 
     // Each thread computes a partial sum
-    __half_raw partial_sum = (__half_raw)0.0;
+    __half partial_sum = (__half)0.0;
     for (size_t i = threadIdx.x; i < N; i += blockDim.x)
     {
         // Compute coordinates in the reduced dimensions from flattened index i
@@ -337,7 +337,7 @@ __global__ void tomoSumToKernel(
     }
 
     // Use shared memory for reduction within the block
-    extern __shared__ __half_raw shared_sumsh[];
+    extern __shared__ __half shared_sumsh[];
     shared_sumsh[threadIdx.x] = partial_sum;
     __syncthreads();
 
@@ -424,7 +424,7 @@ __global__ void tomoSumToKernel(
     }
 
     // Each thread computes a partial sum
-    __nv_bfloat16_raw partial_sum = (__nv_bfloat16_raw)0.0;
+    __nv_bfloat16 partial_sum = (__nv_bfloat16)0.0;
     for (size_t i = threadIdx.x; i < N; i += blockDim.x)
     {
         // Compute coordinates in the reduced dimensions from flattened index i
@@ -449,7 +449,7 @@ __global__ void tomoSumToKernel(
     }
 
     // Use shared memory for reduction within the block
-    extern __shared__ __nv_bfloat16_raw shared_sumsb[];
+    extern __shared__ __nv_bfloat16 shared_sumsb[];
     shared_sumsb[threadIdx.x] = partial_sum;
     __syncthreads();
 
@@ -714,10 +714,9 @@ cudaError_t tomoSumTo(
 )
 {
     // Maximum supported dimensions
-    const size_t MAX_DIMS = 10;
 
     // Validate inputs
-    if (nd > MAX_DIMS || in_shape_len != nd || out_shape_len != nd ||
+    if (nd > MAX_ND || in_shape_len != nd || out_shape_len != nd ||
         in_strides_len != nd || out_strides_len != nd)
     {
         return cudaErrorInvalidValue;
@@ -757,15 +756,15 @@ cudaError_t tomoSumTo(
 
 #define BLOCK_SIZE 16
 
-__global__ void tomoLinearKernelB(__nv_bfloat16_raw const *A, __nv_bfloat16_raw const *B, size_t M, size_t K, size_t N, __nv_bfloat16_raw const *bias, __nv_bfloat16_raw *C)
+__global__ void tomoLinearKernelB(__nv_bfloat16 const *A, __nv_bfloat16 const *B, size_t M, size_t K, size_t N, __nv_bfloat16 const *bias, __nv_bfloat16 *C)
 {
     auto row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
     auto col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    auto sum = (__nv_bfloat16_raw)0.0;
+    auto sum = (__nv_bfloat16)0.0;
     for (auto k = (size_t)0; k < K; k += BLOCK_SIZE)
     {
-        __shared__ __nv_bfloat16_raw shared_a_b[BLOCK_SIZE][BLOCK_SIZE];
-        __shared__ __nv_bfloat16_raw shared_b_b[BLOCK_SIZE][BLOCK_SIZE];
+        __shared__ __nv_bfloat16 shared_a_b[BLOCK_SIZE][BLOCK_SIZE];
+        __shared__ __nv_bfloat16 shared_b_b[BLOCK_SIZE][BLOCK_SIZE];
 
         // Load Ashared
         if (row < M && k + threadIdx.x < K)
@@ -774,7 +773,7 @@ __global__ void tomoLinearKernelB(__nv_bfloat16_raw const *A, __nv_bfloat16_raw 
         }
         else
         {
-            shared_a_b[threadIdx.y][threadIdx.x] = (__nv_bfloat16_raw)0.0;
+            shared_a_b[threadIdx.y][threadIdx.x] = (__nv_bfloat16)0.0;
         }
 
         // Load Bshared
@@ -784,7 +783,7 @@ __global__ void tomoLinearKernelB(__nv_bfloat16_raw const *A, __nv_bfloat16_raw 
         }
         else
         {
-            shared_b_b[threadIdx.y][threadIdx.x] = (__nv_bfloat16_raw)0.0;
+            shared_b_b[threadIdx.y][threadIdx.x] = (__nv_bfloat16)0.0;
         }
 
         __syncthreads();
@@ -810,15 +809,15 @@ __global__ void tomoLinearKernelB(__nv_bfloat16_raw const *A, __nv_bfloat16_raw 
     }
 }
 
-__global__ void tomoLinearKernelH(__half_raw const *A, __half_raw const *B, size_t M, size_t K, size_t N, __half_raw const *bias, __half_raw *C)
+__global__ void tomoLinearKernelH(__half const *A, __half const *B, size_t M, size_t K, size_t N, __half const *bias, __half *C)
 {
     auto row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
     auto col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    auto sum = (__half_raw)0.0;
+    auto sum = (__half)0.0;
     for (auto k = (size_t)0; k < K; k += BLOCK_SIZE)
     {
-        __shared__ __half_raw shared_a_h[BLOCK_SIZE][BLOCK_SIZE];
-        __shared__ __half_raw shared_b_h[BLOCK_SIZE][BLOCK_SIZE];
+        __shared__ __half shared_a_h[BLOCK_SIZE][BLOCK_SIZE];
+        __shared__ __half shared_b_h[BLOCK_SIZE][BLOCK_SIZE];
 
         // Load Ashared
         if (row < M && k + threadIdx.x < K)
@@ -827,7 +826,7 @@ __global__ void tomoLinearKernelH(__half_raw const *A, __half_raw const *B, size
         }
         else
         {
-            shared_a_h[threadIdx.y][threadIdx.x] = (__half_raw)0.0;
+            shared_a_h[threadIdx.y][threadIdx.x] = (__half)0.0;
         }
 
         // Load Bshared
@@ -837,7 +836,7 @@ __global__ void tomoLinearKernelH(__half_raw const *A, __half_raw const *B, size
         }
         else
         {
-            shared_b_h[threadIdx.y][threadIdx.x] = (__half_raw)0.0;
+            shared_b_h[threadIdx.y][threadIdx.x] = (__half)0.0;
         }
 
         __syncthreads();
@@ -976,11 +975,11 @@ cudaError_t tomoLinear(T const *A, T const *B, size_t M, size_t K, size_t N, T c
     dim3 gridDim(((unsigned int)N + BLOCK_SIZE - 1) / BLOCK_SIZE, ((unsigned int)M + BLOCK_SIZE - 1) / BLOCK_SIZE);
     dim3 blockDim(BLOCK_SIZE, BLOCK_SIZE);
 
-    if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+    if constexpr (std::is_same_v<T, __nv_bfloat16>)
     {
         tomoLinearKernelB<<<gridDim, blockDim, 0, stream>>>(A, B, M, K, N, bias, C);
     }
-    else if constexpr (std::is_same_v<T, __half_raw>)
+    else if constexpr (std::is_same_v<T, __half>)
     {
         tomoLinearKernelH<<<gridDim, blockDim, 0, stream>>>(A, B, M, K, N, bias, C);
     }
@@ -2801,12 +2800,12 @@ __global__ void tomoCol2imKernel(
         size_t img_idx = n_idx * (c * h * w) + c_idx * (h * w) + (size_t)in_y * w + (size_t)in_x;
 
         // Use atomicAdd. Implementation differs for half/bfloat16 vs. float/double
-        if constexpr (std::is_same_v<T, __half_raw>)
+        if constexpr (std::is_same_v<T, __half>)
         {
             atomicAdd(reinterpret_cast<__half *>(&d_img[img_idx]),
                       static_cast<__half>(val));
         }
-        else if constexpr (std::is_same_v<T, __nv_bfloat16_raw>)
+        else if constexpr (std::is_same_v<T, __nv_bfloat16>)
         {
             atomicAdd(reinterpret_cast<__nv_bfloat16 *>(&d_img[img_idx]),
                       static_cast<__nv_bfloat16>(val));

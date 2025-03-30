@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
+#include <stdbool.h>
 
 #include "tomo_dll.h"
 
@@ -292,3 +293,25 @@ TOMO_EXTERN_C TOMO_OPS_API  cudaError_t tomoFillNormalH(__half_raw *a, size_t le
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillNormalB(__nv_bfloat16_raw *a, size_t len, float mean, float stddev,  unsigned long long seed, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUniformH(__half_raw *a, size_t len,  unsigned long long seed, cudaStream_t stream);
 TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUniformB(__nv_bfloat16_raw *a, size_t len,  unsigned long long seed, cudaStream_t stream);
+
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaNH(
+    const __half_raw* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaNB(
+    const __nv_bfloat16_raw* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaNF(
+    const float* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream);
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaND(
+    const double* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream);

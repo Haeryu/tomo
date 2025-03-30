@@ -6,6 +6,8 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const Bf16 = @import("bf16.zig").BF16;
 
+const is_debugging = @import("builtin").mode == .Debug;
+
 pub fn TensorOpLinear(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
@@ -69,6 +71,10 @@ pub fn TensorOpLinear(comptime T: type) type {
                     ));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try res.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return res.move();
@@ -194,6 +200,10 @@ pub fn TensorOpLinear(comptime T: type) type {
                     ));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try res.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return res.move();

@@ -10,6 +10,7 @@
 #include <thrust/tuple.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/logical.h>
 
 #include <curand_kernel.h>
 
@@ -1531,4 +1532,91 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUniformB(__nv_bfloat16_raw *a, si
     unsigned int blocks_per_grid = (unsigned int)(len + threads_per_block - 1) / threads_per_block;
     tomoFillUniformBKernel<<<blocks_per_grid, threads_per_block, 0, stream>>>(reinterpret_cast<__nv_bfloat16 *>(a), len, seed);
     return cudaGetLastError();
+}
+
+
+template <typename T>
+cudaError_t tomoHasNaN(
+    const T* data,      // [in] array to check for NaN
+    size_t len,         // number of elements
+    bool* result,       // [out] host boolean indicating if any NaN was found
+    cudaStream_t stream // CUDA stream
+)
+{
+    if (!data || !result) {
+        return cudaErrorInvalidValue;
+    }
+    if (len == 0) {
+        *result = false; 
+        return cudaSuccess;
+    }
+
+    try {
+        auto predicate = [=] __device__ (T x) -> bool {
+            if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+                return isnan(x); 
+            } else if constexpr (std::is_same_v<T, __half>) {
+                return __hisnan(x); 
+            } else if constexpr (std::is_same_v<T, __nv_bfloat16>) {
+                return isnan(__bfloat162float(x));
+            } else {
+                return false; 
+            }
+        };
+
+        bool has_nan = thrust::any_of(
+            thrust::cuda::par_nosync.on(stream), 
+            data,                        
+            data + len,                 
+            predicate                    
+        );
+
+        *result = has_nan;
+    } catch (const thrust::system_error &e) {
+        if (e.code().category() == thrust::cuda_category()) {
+            return static_cast<cudaError_t>(e.code().value());
+        } else {
+            return cudaErrorUnknown;
+        }
+    } catch (...) {
+        return cudaErrorUnknown;
+    }
+
+    return cudaSuccess;
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaNH(
+    const __half_raw* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream)
+{
+    return tomoHasNaN<__half>((const __half*)data, len, result, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaNB(
+    const __nv_bfloat16_raw* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream)
+{
+    return tomoHasNaN<__nv_bfloat16>((const __nv_bfloat16*)data, len, result, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaNF(
+    const float* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream)
+{
+    return tomoHasNaN<float>(data, len, result, stream);
+}
+
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoHasNaND(
+    const double* data,
+    size_t len,
+    bool* result,
+    cudaStream_t stream)
+{
+    return tomoHasNaN<double>(data, len, result, stream);
 }

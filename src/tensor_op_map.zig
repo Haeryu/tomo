@@ -7,6 +7,8 @@ const GPUTensor = @import("tensor.zig").GPUTensor;
 const TensorOpReduction = @import("tensor_op_reduction.zig").TensorOpReduction;
 const BF16 = @import("bf16.zig").BF16;
 
+const is_debugging = @import("builtin").mode == .Debug;
+
 pub fn TensorOpMap(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
@@ -27,6 +29,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn cos(self: *Self, stream: *const Stream) !void {
@@ -44,6 +50,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoCosD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -63,6 +73,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn relu(self: *Self, stream: *const Stream) !void {
@@ -80,6 +94,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoReluD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -99,6 +117,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn inv(self: *Self, stream: *const Stream) !void {
@@ -116,6 +138,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoInvD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -138,6 +164,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoEluD(self.ptr.?, self.calcLen(), alpha, stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -162,6 +192,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn softplus(
@@ -182,6 +216,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoSoftplusD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -204,6 +242,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn tanh(
@@ -224,6 +266,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoTanhD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -246,6 +292,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn gelu(
@@ -266,6 +316,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoGeluD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -288,6 +342,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn hardSwish(
@@ -308,6 +366,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoHardSwishD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -330,6 +392,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn square(
@@ -350,6 +416,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoSquareD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -372,6 +442,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn log(
@@ -392,6 +466,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoLogD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -414,6 +492,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn abs(
@@ -434,6 +516,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoAbsD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -457,6 +543,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn powf(
@@ -479,6 +569,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn pow(
@@ -500,6 +594,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoPowD(self.ptr.?, self.calcLen(), @intCast(exponent), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -524,6 +622,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn ceil(
@@ -545,6 +647,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn floor(
@@ -565,6 +671,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoFloorD(self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -588,6 +698,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn scaleShift(
@@ -610,6 +724,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoScaleShiftD(self.ptr.?, self.calcLen(), factor, offset, stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -662,6 +780,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (T != usize and is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn gtEq(self: *Self, num: T, stream: *const Stream) !void {
@@ -682,6 +804,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoGtEqUZ(self.ptr.?, self.calcLen(), num, stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (T != usize and is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -704,6 +830,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (T != usize and is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn ltEq(self: *Self, num: T, stream: *const Stream) !void {
@@ -724,6 +854,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoLtEqUZ(self.ptr.?, self.calcLen(), num, stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (T != usize and is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -746,6 +880,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (T != usize and is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn neq(self: *Self, num: T, stream: *const Stream) !void {
@@ -767,6 +905,10 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (T != usize and is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn maskedFill(self: *Self, mask: *const Self, num: if (T != BF16) T else f32, stream: *const Stream) !void {
@@ -784,6 +926,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoMaskedFillD(self.ptr.?, mask.ptr, num, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -805,14 +951,18 @@ pub fn TensorOpMap(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
-        pub fn triu(self: *Self, fill: T, stream: *const Stream) !void {
+        pub fn triu(self: *Self, fill: if (T != BF16) T else f32, stream: *const Stream) !void {
             const rows = self.base.getRow();
             const cols = self.base.getCol();
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoTriuB(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
+                    try err.checkCuda(c.tomoTriuB(@ptrCast(self.ptr.?), rows, cols, @bitCast(BF16.fromF32(fill)), stream.stream));
                 },
                 f16 => {
                     try err.checkCuda(c.tomoTriuH(@ptrCast(self.ptr.?), rows, cols, @bitCast(fill), stream.stream));
@@ -824,6 +974,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoTriuD(self.ptr.?, rows, cols, fill, stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -846,6 +1000,10 @@ pub fn TensorOpMap(comptime T: type) type {
                     try err.checkCuda(c.tomoArangeUZ(self.ptr.?, start, step, len, stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (T != usize and is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
     };

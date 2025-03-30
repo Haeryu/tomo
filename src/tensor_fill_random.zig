@@ -6,6 +6,8 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const BF16 = @import("bf16.zig").BF16;
 
+const is_debugging = @import("builtin").mode == .Debug;
+
 pub fn TensorFillRandom(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
@@ -33,6 +35,10 @@ pub fn TensorFillRandom(comptime T: type) type {
                     try err.checkCurand(c.curandGenerateUniformDouble(cuda_context.curand_generator, self.ptr.?, self.calcLen()));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -75,6 +81,10 @@ pub fn TensorFillRandom(comptime T: type) type {
                     try err.checkCurand(c.curandGenerateNormalDouble(cuda_context.curand_generator, self.ptr.?, self.calcLen(), mean, stddev));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 

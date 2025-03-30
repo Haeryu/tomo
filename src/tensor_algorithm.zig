@@ -6,6 +6,8 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const BF16 = @import("bf16.zig").BF16;
 
+const is_debugging = @import("builtin").mode == .Debug;
+
 pub fn TensorAlgorithm(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
@@ -26,6 +28,10 @@ pub fn TensorAlgorithm(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn sortDesc(self: *Self, stream: *const Stream) !void {
@@ -43,6 +49,10 @@ pub fn TensorAlgorithm(comptime T: type) type {
                     try err.checkCuda(c.tomoSortDescD(self.ptr, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -62,24 +72,55 @@ pub fn TensorAlgorithm(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn find(self: *const Self, val: T, stream: *const Stream, i: *usize) !void {
             switch (T) {
                 BF16 => {
-                    try err.checkCuda(c.tomoFindB(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream, i));
+                    try err.checkCuda(c.tomoFindB(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream.stream, i));
                 },
                 f16 => {
-                    try err.checkCuda(c.tomoFindH(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream, i));
+                    try err.checkCuda(c.tomoFindH(@ptrCast(self.ptr), self.calcLen(), @ptrCast(val), stream.stream, i));
                 },
                 f32 => {
-                    try err.checkCuda(c.tomoFindF(self.ptr, self.calcLen(), val, stream, i));
+                    try err.checkCuda(c.tomoFindF(self.ptr, self.calcLen(), val, stream.stream, i));
                 },
                 f64 => {
-                    try err.checkCuda(c.tomoFindD(self.ptr, self.calcLen(), val, stream, i));
+                    try err.checkCuda(c.tomoFindD(self.ptr, self.calcLen(), val, stream.stream, i));
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
+        }
+
+        pub fn hasNaN(self: *const Self, stream: *const Stream) !bool {
+            var has_nan: bool = false;
+            switch (T) {
+                BF16 => {
+                    try err.checkCuda(c.tomoHasNaNB(@ptrCast(self.ptr), self.calcLen(), &has_nan, stream.stream));
+                },
+                f16 => {
+                    try err.checkCuda(c.tomoHasNaNH(@ptrCast(self.ptr), self.calcLen(), &has_nan, stream.stream));
+                },
+                f32 => {
+                    try err.checkCuda(c.tomoHasNaNF(self.ptr, self.calcLen(), &has_nan, stream.stream));
+                },
+                f64 => {
+                    try err.checkCuda(c.tomoHasNaND(self.ptr, self.calcLen(), &has_nan, stream.stream));
+                },
+                else => return false,
+            }
+
+            try stream.sync();
+
+            return has_nan;
         }
     };
 }

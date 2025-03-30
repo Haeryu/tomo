@@ -6,6 +6,8 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const Bf16 = @import("bf16.zig").BF16;
 
+const is_debugging = @import("builtin").mode == .Debug;
+
 pub fn TensorOpBroadCast(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
@@ -144,6 +146,10 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     ));
                 },
                 else => unreachable,
+            }
+
+            if (T != usize and is_debugging and try out.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return out;
@@ -305,6 +311,15 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             //     try out.squeeze(allocator);
             // }
 
+            // var host_out = try out.toHost(allocator, stream);
+            // defer host_out.deinit(allocator);
+
+            // std.debug.print("{d}", .{host_out});
+
+            if (is_debugging and try out.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out;
         }
 
@@ -373,6 +388,10 @@ pub fn TensorOpBroadCast(comptime T: type) type {
                     try err.checkCuda(c.tomoTransposeD(self.ptr.?.?, self.base.getRow(), self.base.getCol(), res.ptr, stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try res.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return res.move();
@@ -474,6 +493,10 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             //     try out.squeeze(allocator);
             // }
 
+            if (is_debugging and try out.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out;
         }
 
@@ -572,6 +595,10 @@ pub fn TensorOpBroadCast(comptime T: type) type {
             // if (!keepdims) {
             //     try out.squeeze(allocator);
             // }
+
+            if (is_debugging and try out.hasNaN(stream)) {
+                return error.HasNan;
+            }
 
             return out;
         }
@@ -807,6 +834,10 @@ pub fn TensorOpBroadCast(comptime T: type) type {
 
             const scale_factor: if (T != Bf16) T else f32 = 1.0 / @as(if (T != Bf16) T else f32, @floatFromInt(num_elements));
             try out.scale(scale_factor, stream);
+
+            if (is_debugging and try out.hasNaN(stream)) {
+                return error.HasNan;
+            }
 
             return out;
         }

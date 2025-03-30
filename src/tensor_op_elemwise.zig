@@ -6,6 +6,8 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const Bf16 = @import("bf16.zig").BF16;
 
+const is_debugging = @import("builtin").mode == .Debug;
+
 pub fn TensorOpElemwise(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
@@ -27,6 +29,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn sub(self: *Self, other: *const Self, stream: *const Stream) !void {
@@ -45,6 +51,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                     try err.checkCuda(c.tomoSubD(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -65,6 +75,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn divide(self: *Self, other: *const Self, stream: *const Stream) !void {
@@ -83,6 +97,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                     try err.checkCuda(c.tomoDivideD(self.ptr.?, other.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -106,6 +124,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn equalApprox(self: *Self, other: *const Self, eps: T, stream: *const Stream) !void {
@@ -126,6 +148,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
 
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn reluBackward(self: *Self, x: *const Self, stream: *const Stream) !void {
@@ -144,6 +170,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                     try err.checkCuda(c.tomoReluBackwardD(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
 
@@ -164,6 +194,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                 },
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn geluBackward(self: *Self, x: *const Self, stream: *const Stream) !void {
@@ -182,6 +216,10 @@ pub fn TensorOpElemwise(comptime T: type) type {
                     try err.checkCuda(c.tomoGeluBackwardD(x.ptr.?, self.ptr.?, self.calcLen(), stream.stream));
                 },
                 else => unreachable,
+            }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
             }
         }
     };

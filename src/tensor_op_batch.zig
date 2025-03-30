@@ -6,6 +6,8 @@ const CudaContext = @import("cuda_context.zig").CudaContext;
 const GPUTensor = @import("tensor.zig").GPUTensor;
 const Bf16 = @import("bf16.zig").BF16;
 
+const is_debugging = @import("builtin").mode == .Debug;
+
 pub fn TensorOpBatch(comptime T: type) type {
     return struct {
         const Self = GPUTensor(T);
@@ -113,6 +115,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable,
+            }
+
+            if (is_debugging and try items.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return items.move();
@@ -231,6 +237,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 )),
                 else => unreachable,
             }
+
+            if (is_debugging and try self.hasNaN(stream)) {
+                return error.HasNan;
+            }
         }
 
         pub fn getItemGrad(self: *const Self, allocator: std.mem.Allocator, slices: []const Self.Slice, gy: *const Self, stream: *const Stream) !Self {
@@ -339,6 +349,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable,
+            }
+
+            if (is_debugging and try gx.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return gx.move();
@@ -522,6 +536,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out_tensor.move();
         }
 
@@ -627,6 +645,10 @@ pub fn TensorOpBatch(comptime T: type) type {
             var result = &matmul_result;
             try result.reshape(out_shape);
 
+            if (is_debugging and try result.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return result.move();
         }
         pub fn transposeEx(
@@ -727,6 +749,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable,
+            }
+
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return out_tensor.move();
@@ -832,6 +858,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out_tensor.move();
         }
 
@@ -929,6 +959,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable,
+            }
+
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return out_tensor.move();
@@ -1033,6 +1067,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out_tensor.move();
         }
 
@@ -1130,6 +1168,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out_tensor.move();
         }
 
@@ -1213,6 +1255,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out_tensor.move();
         }
 
@@ -1288,6 +1334,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable,
+            }
+
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return out_tensor.move();
@@ -1394,6 +1444,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable,
+            }
+
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return out_tensor.move();
@@ -1508,6 +1562,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
+            if (is_debugging and try gx.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return gx.move();
         }
 
@@ -1611,6 +1669,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
+            if (is_debugging and try out_tensor.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
             return out_tensor.move();
         }
 
@@ -1640,16 +1702,16 @@ pub fn TensorOpBatch(comptime T: type) type {
             const pH, const pW = padding;
 
             // Allocate gX => same shape as input
-            var gX = try Self.initAsync(shape_in, stream);
-            errdefer gX.deinitAsync(stream);
+            var gx = try Self.initAsync(shape_in, stream);
+            errdefer gx.deinitAsync(stream);
 
             // zero gX
-            try err.checkCuda(c.cudaMemsetAsync(gX.ptr.?, 0, gX.calcLen() * @sizeOf(T), stream.stream));
+            try err.checkCuda(c.cudaMemsetAsync(gx.ptr.?, 0, gx.calcLen() * @sizeOf(T), stream.stream));
 
             switch (T) {
                 Bf16 => try err.checkCuda(c.tomoAvgPool2dBackwardB(
                     @ptrCast(gy.ptr.?),
-                    @ptrCast(gX.ptr.?),
+                    @ptrCast(gx.ptr.?),
                     N,
                     C,
                     H,
@@ -1666,7 +1728,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                 )),
                 f16 => try err.checkCuda(c.tomoAvgPool2dBackwardH(
                     @ptrCast(gy.ptr.?),
-                    @ptrCast(gX.ptr.?),
+                    @ptrCast(gx.ptr.?),
                     N,
                     C,
                     H,
@@ -1683,7 +1745,7 @@ pub fn TensorOpBatch(comptime T: type) type {
                 )),
                 f32 => try err.checkCuda(c.tomoAvgPool2dBackwardF(
                     gy.ptr.?,
-                    gX.ptr.?,
+                    gx.ptr.?,
                     N,
                     C,
                     H,
@@ -1716,7 +1778,11 @@ pub fn TensorOpBatch(comptime T: type) type {
                 else => unreachable,
             }
 
-            return gX.move();
+            if (is_debugging and try gx.hasNaN(stream)) {
+                return error.HasNan;
+            }
+
+            return gx.move();
         }
 
         pub fn embeddingForward(
@@ -1777,6 +1843,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable, // Only Bf16, f16, f32, f64 are supported
+            }
+
+            if (is_debugging and try output.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             // Return the output tensor, transferring ownership
@@ -1841,6 +1911,10 @@ pub fn TensorOpBatch(comptime T: type) type {
                     stream.stream,
                 )),
                 else => unreachable, // Only Bf16, f16, f32, f64 are supported
+            }
+
+            if (is_debugging and try grad_weight.hasNaN(stream)) {
+                return error.HasNan;
             }
 
             return grad_weight.move();
