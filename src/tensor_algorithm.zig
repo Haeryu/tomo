@@ -26,6 +26,9 @@ pub fn TensorAlgorithm(comptime T: type) type {
                 f64 => {
                     try err.checkCuda(c.tomoFillD(self.ptr, self.calcLen(), val, stream.stream));
                 },
+                usize => {
+                    try err.checkCuda(c.tomoFillUZ(self.ptr, self.calcLen(), val, stream.stream));
+                },
                 else => unreachable,
             }
 

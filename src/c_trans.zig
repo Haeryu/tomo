@@ -5889,6 +5889,7 @@ pub extern fn tomoFillH(a: [*c]__half_raw, len: usize, val: __half_raw, stream: 
 pub extern fn tomoFillB(a: [*c]__nv_bfloat16_raw, len: usize, val: __nv_bfloat16_raw, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoFillF(a: [*c]f32, len: usize, val: f32, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoFillD(a: [*c]f64, len: usize, val: f64, stream: cudaStream_t) cudaError_t;
+pub extern fn tomoFillUZ(a: [*c]usize, len: usize, val: usize, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSortDescH(a: [*c]__half_raw, len: usize, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSortDescB(a: [*c]__nv_bfloat16_raw, len: usize, stream: cudaStream_t) cudaError_t;
 pub extern fn tomoSortDescF(a: [*c]f32, len: usize, stream: cudaStream_t) cudaError_t;

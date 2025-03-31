@@ -62,6 +62,11 @@ TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillD(double *a, size_t len, double v
     return tomoFill(a, len, val, stream);
 }
 
+TOMO_EXTERN_C TOMO_OPS_API cudaError_t tomoFillUZ(size_t *a, size_t len, size_t val, cudaStream_t stream)
+{
+    return tomoFill(a, len, val, stream);
+}
+
 cudaError_t tomoSortDesc(auto *a, size_t len, cudaStream_t stream)
 {
     using T = std::remove_cvref_t<decltype(*a)>;
