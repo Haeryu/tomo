@@ -1,1 +1,1 @@
-Tomo: Object form Mathematical Operation
+Tomo: Object for Mathematical Operation
